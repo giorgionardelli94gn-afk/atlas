@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3557b7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Atlas Deck">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Edison Deck Builder</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --ink:#1c2029; --muted:#6b7280; --line:#e2e5eb;
+    --accent:#3557b7; --accent-ink:#fff; --ok:#1a7f52; --warn:#b7791f; --bad:#c0392b;
+    --chip:#eef1f7; --shadow:0 1px 3px rgba(0,0,0,.08);
+    --forbidden:#c0392b; --limited:#b7791f; --semi:#2f6fb0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161b; --panel:#1e2128; --ink:#e7e9ee; --muted:#9aa1ad; --line:#2c313b;
+      --accent:#5b82e0; --accent-ink:#0b0d11; --ok:#3fbf82; --warn:#e0a94b; --bad:#e5675a;
+      --chip:#262b34; --shadow:0 1px 3px rgba(0,0,0,.4);
+      --forbidden:#e5675a; --limited:#e0a94b; --semi:#6fa8e0;
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12px}
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+  .tab{padding:6px 12px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;cursor:pointer;font-size:13px}
+  .tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  main{max-width:1200px;margin:0 auto;padding:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
+  .panel h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  button{font-family:inherit}
+  .btn{padding:7px 12px;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .btn.sm{padding:3px 8px;font-size:12px}
+  input,select,textarea{font-family:inherit;font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  textarea{width:100%;min-height:120px;resize:vertical}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  .search-wrap{position:relative}
+  #searchInput{width:100%}
+  .ac{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:340px;overflow:auto;z-index:30;display:none}
+  .ac.show{display:block}
+  .ac-item{padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+  .ac-item:last-child{border-bottom:0}
+  .ac-item:hover,.ac-item.active{background:var(--chip)}
+  .ac-item .nm{flex:1}
+  .ac-item .zone{font-size:11px;color:var(--muted)}
+  .ac-item img,.card-row img.thumb{width:30px;height:auto;border-radius:3px;flex:0 0 auto;background:var(--chip)}
+  /* grid view */
+  .deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+  .tile{position:relative;border:2px solid var(--line);border-radius:8px;overflow:hidden;background:var(--chip);min-height:118px;display:flex;flex-direction:column}
+  .tile.forbidden{border-color:var(--forbidden)} .tile.limited{border-color:var(--limited)} .tile.semi{border-color:var(--semi)}
+  .tile img{width:100%;aspect-ratio:59/86;object-fit:cover;display:block;background:var(--line)}
+  .tile.noimg{justify-content:center;align-items:center;padding:6px}
+  .tile .tqty{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.78);color:#fff;font-weight:700;border-radius:6px;padding:0 7px;font-size:13px;line-height:1.5}
+  .tile .tctrl{position:absolute;top:3px;right:3px;display:flex;gap:2px}
+  .tile .tctrl button,.tile .tmv{width:22px;height:22px;line-height:1;border:0;border-radius:5px;background:rgba(0,0,0,.68);color:#fff;cursor:pointer;font-size:14px;padding:0}
+  .tile .tmvwrap{position:absolute;bottom:22px;right:3px}
+  .tile .tmv{font-size:11px;width:auto;padding:0 5px;height:20px}
+  .tile .tname{font-size:10px;line-height:1.15;padding:3px 4px;max-height:2.4em;overflow:hidden;text-align:center;margin-top:auto}
+  .tile.noimg .tname{font-size:12px;max-height:none}
+  .deckcols{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+  @media(max-width:820px){.deckcols{grid-template-columns:1fr}}
+  .section{margin-bottom:14px}
+  .section-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .section-head h3{margin:0;font-size:14px}
+  .count-badge{font-weight:700;font-variant-numeric:tabular-nums;padding:1px 8px;border-radius:20px;background:var(--chip);font-size:12px}
+  .count-badge.ok{color:var(--ok)} .count-badge.bad{color:var(--bad)} .count-badge.warn{color:var(--warn)}
+  .card-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px;background:var(--panel)}
+  .card-row .qty{font-weight:700;min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
+  .card-row .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card-row .stepper button{width:24px;height:24px;line-height:1;border-radius:6px;border:1px solid var(--line);background:var(--chip);cursor:pointer;font-size:15px}
+  .card-row .mv{font-size:11px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .dot.forbidden{background:var(--forbidden)} .dot.limited{background:var(--limited)} .dot.semi{background:var(--semi)} .dot.free{background:transparent;border:1px solid var(--line)}
+  .tag{font-size:10px;padding:1px 6px;border-radius:5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .tag.forbidden{background:var(--forbidden);color:#fff} .tag.limited{background:var(--limited);color:#fff} .tag.semi{background:var(--semi);color:#fff}
+  .empty{color:var(--muted);font-style:italic;padding:8px 4px;font-size:13px}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw}
+  #toast.show{opacity:1}
+  #toast.bad{background:var(--bad);color:#fff}
+  .val-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+  .val-line .ico{width:16px;text-align:center}
+  .ok-ico{color:var(--ok)} .bad-ico{color:var(--bad)} .warn-ico{color:var(--warn)}
+  .banlist-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:820px){.banlist-cols{grid-template-columns:1fr}}
+  .bl-list{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px}
+  .bl-item{display:flex;align-items:center;gap:6px;padding:2px 4px;font-size:12px;border-bottom:1px solid var(--line)}
+  .bl-item:last-child{border-bottom:0}
+  .bl-item .x{cursor:pointer;color:var(--muted);font-weight:700}
+  .bl-item .x:hover{color:var(--bad)}
+  code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:12px}
+  .hidden{display:none!important}
+  .pill{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--chip);color:var(--muted)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);align-items:center}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+  table.cmp th,table.cmp td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+  table.cmp th{color:var(--muted);font-size:11px;text-transform:uppercase}
+  .diff-add{color:var(--ok)} .diff-rem{color:var(--bad)} .diff-chg{color:var(--warn)}
+  /* ---------- print sheet ---------- */
+  #printSheet{position:absolute;left:-99999px;top:0;width:100%;color:#000;background:#fff;font-size:12px}
+  #printSheet h2{font-size:18px;margin:0 0 2px}
+  #printSheet .pfields{display:flex;gap:24px;flex-wrap:wrap;margin:6px 0 12px;font-size:12px}
+  #printSheet .pfields div{border-bottom:1px solid #000;min-width:180px;padding-bottom:2px}
+  #printSheet .pcols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  #printSheet h3{font-size:13px;border-bottom:2px solid #000;margin:8px 0 4px;padding-bottom:2px;display:flex;justify-content:space-between}
+  #printSheet ol{margin:0;padding-left:22px}
+  #printSheet li{padding:1px 0}
+  #printSheet .ptot{margin-top:6px;font-weight:700}
+  @media print{
+    body{background:#fff}
+    body > *{visibility:hidden}
+    #printSheet,#printSheet *{visibility:visible}
+    #printSheet{left:0;padding:12px}
+    @page{margin:14mm}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Edison Deck Builder</h1>
+    <div class="sub">Formato Edison · Banlist Marzo 2010 (TCG)</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="build">Costruisci mazzo</button>
+    <button class="tab" data-tab="config">Banlist / Config</button>
+    <button class="tab" data-tab="db">Database carte</button>
+    <button class="tab" data-tab="compare">Confronta liste</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ BUILD ============ -->
+  <section id="tab-build">
+    <div class="panel">
+      <h2>Aggiungi carta</h2>
+      <div class="search-wrap">
+        <input id="searchInput" placeholder="Scrivi il nome della carta e premi Invio (o scegli dalla lista)…" autocomplete="off">
+        <div class="ac" id="ac"></div>
+      </div>
+      <div class="row small muted" style="margin-top:8px">
+        <span>Banlist attiva: <b id="activeBanlistName">—</b></span>
+        <span class="pill" id="poolStatus">Pool carte: solo banlist</span>
+        <label class="row" style="gap:4px"><input type="checkbox" id="strictPool"> Solo formato attivo (blocca fuori formato)</label>
+        <label class="row" style="gap:4px"><input type="checkbox" id="showImages"> Mostra immagini</label>
+        <label class="row" style="gap:4px">Lingua <select id="langSel" style="padding:3px 6px"><option value="en">EN</option><option value="it">IT</option></select></label>
+        <label class="row" style="gap:4px">Vista <select id="viewSel" style="padding:3px 6px"><option value="list">Lista</option><option value="grid">Griglia</option></select></label>
+      </div>
+      <div class="legend" style="margin-top:8px">
+        <span><span class="dot forbidden"></span>Vietata (0)</span>
+        <span><span class="dot limited"></span>Limitata (1)</span>
+        <span><span class="dot semi"></span>Semi (2)</span>
+        <span><span class="dot free"></span>Libera (max 3)</span>
+        <span class="muted">Il limite conta le copie su Main+Extra+Side insieme.</span>
+      </div>
+    </div>
+
+    <div class="deckcols">
+      <div>
+        <div class="panel">
+          <div class="section" id="sec-main">
+            <div class="section-head"><h3>Main Deck</h3><span class="count-badge" id="cnt-main">0</span><span class="muted small">(40–60)</span></div>
+            <div class="list" id="list-main"></div>
+          </div>
+          <div class="section" id="sec-extra">
+            <div class="section-head"><h3>Extra Deck</h3><span class="count-badge" id="cnt-extra">0</span><span class="muted small">(0–15)</span></div>
+            <div class="list" id="list-extra"></div>
+          </div>
+          <div class="section" id="sec-side">
+            <div class="section-head"><h3>Side Deck</h3><span class="count-badge" id="cnt-side">0</span><span class="muted small">(0–15)</span></div>
+            <div class="list" id="list-side"></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Controllo legalità</h2>
+          <div id="validation"></div>
+        </div>
+        <div class="panel">
+          <h2>Mazzo · salva</h2>
+          <div class="row">
+            <input id="deckName" placeholder="Nome mazzo" style="flex:1;min-width:120px">
+            <button class="btn primary sm" id="saveDeck">Salva</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <select id="savedDecks" style="flex:1"><option value="">— mazzi salvati —</option></select>
+            <button class="btn sm" id="loadDeck">Carica</button>
+            <button class="btn sm" id="delDeck">Elimina</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Esporta / Importa / Stampa</h2>
+          <div class="row">
+            <button class="btn sm" id="expTxtFile">⬇ .txt</button>
+            <button class="btn sm" id="expYdkFile">⬇ .ydk</button>
+            <button class="btn sm" id="importFileBtn">⬆ Importa file</button>
+            <input type="file" id="deckFile" accept=".txt,.ydk" class="hidden">
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn sm" id="printBtn">🖨 Stampa foglio</button>
+            <button class="btn sm" id="copyTxt">Copia testo</button>
+            <button class="btn sm" id="pasteImport">Incolla lista</button>
+            <button class="btn sm" id="clearDeck">Svuota</button>
+          </div>
+          <textarea id="deckIO" class="hidden" style="margin-top:8px"></textarea>
+          <div class="row hidden" id="importRow" style="margin-top:6px"><button class="btn primary sm" id="applyImport">Applica lista</button><button class="btn sm" id="cancelImport">Annulla</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONFIG / BANLIST ============ -->
+  <section id="tab-config" class="hidden">
+    <div class="panel">
+      <h2>Banlist attiva</h2>
+      <div class="row">
+        <select id="banlistSelect" style="min-width:240px"></select>
+        <button class="btn sm" id="delBanlist">Elimina banlist</button>
+        <span class="muted small" id="banlistMeta"></span>
+      </div>
+      <div class="banlist-cols" style="margin-top:12px">
+        <div><div class="section-head"><h3 style="color:var(--forbidden)">Vietate</h3><span class="count-badge" id="bl-cnt-forbidden">0</span></div><div class="bl-list" id="bl-forbidden"></div></div>
+        <div><div class="section-head"><h3 style="color:var(--limited)">Limitate</h3><span class="count-badge" id="bl-cnt-limited">0</span></div><div class="bl-list" id="bl-limited"></div></div>
+        <div><div class="section-head"><h3 style="color:var(--semi)">Semi-limitate</h3><span class="count-badge" id="bl-cnt-semi">0</span></div><div class="bl-list" id="bl-semi"></div></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <input id="blAddName" placeholder="Nome carta" style="flex:1;min-width:140px">
+        <select id="blAddStatus"><option value="forbidden">Vietata</option><option value="limited">Limitata</option><option value="semi">Semi-limitata</option></select>
+        <button class="btn sm" id="blAdd">Aggiungi / aggiorna</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Importa una banlist</h2>
+      <p class="small muted">Incolla una lista in uno di questi formati, dai un nome, e premi importa. Diventerà selezionabile qui sopra.</p>
+      <div class="row" style="margin-bottom:8px">
+        <input id="blNewName" placeholder="Nome della nuova banlist (es. Edison 2011)" style="flex:1;min-width:160px">
+        <input id="blNewFormat" placeholder="formato YGOPRODeck (opz. es. goat)" style="min-width:150px" title="Se questo formato ha un pool su YGOPRODeck (es. goat, edison), scrivilo qui per poterlo scaricare. Altrimenti importa il pool a mano.">
+        <select id="blFormat">
+          <option value="sections">Sezioni (Forbidden: / Limited: / Semi-Limited:)</option>
+          <option value="csv">CSV / riga: nome,stato</option>
+          <option value="ygopro">JSON YGOPRODeck (banlist_info)</option>
+        </select>
+      </div>
+      <textarea id="blImportText" placeholder="Esempio formato Sezioni:&#10;Forbidden:&#10;Pot of Greed&#10;Raigeki&#10;Limited:&#10;Heavy Storm&#10;Semi-Limited:&#10;Honest"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn primary sm" id="blImport">Importa banlist</button><button class="btn sm" id="blExport">Esporta banlist attiva</button></div>
+    </div>
+  </section>
+
+  <!-- ============ DB ============ -->
+  <section id="tab-db" class="hidden">
+    <div class="panel">
+      <h2>Database carte</h2>
+      <p class="small muted">Il tool parte con le sole carte della banlist. Scarica un database per avere autocomplete completo, riconoscimento Extra Deck automatico, immagini ed export .ydk (che richiede gli ID carta).</p>
+      <div class="row">
+        <select id="dbSource">
+          <option value="edison">Pool del formato attivo (consigliato)</option>
+          <option value="all">Tutte le carte (ogni set)</option>
+        </select>
+        <button class="btn primary" id="fetchPool">Scarica</button>
+        <button class="btn sm" id="updatePool">Aggiorna (carte nuove)</button>
+        <button class="btn sm" id="recalcLegal" title="Ricalcola la legalità del formato attivo dalle carte già scaricate, in base alla data di uscita">Ricalcola legalità (formato attivo)</button>
+        <span class="muted small" id="fetchStatus"></span>
+      </div>
+      <p class="small muted" id="poolMetaInfo" style="margin-top:6px"></p>
+      <p class="small muted">⚠ La legalità del pool è legata al <b>formato/banlist attivo</b> (selezionabile nel tab Banlist), non a "Edison" in modo fisso. Sia "Pool del formato attivo" sia "Tutte le carte" definiscono quali carte sono legali nel formato attivo; con "Tutte le carte" hai la ricerca su tutto, e l'opzione "Solo formato attivo" nasconde/blocca ciò che non appartiene al formato.</p>
+      <p class="small muted">Lo scarico avviene dal <b>tuo</b> browser. Se apri il file da locale e fallisce (rete/CORS), usa l'import manuale qui sotto.</p>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <h2>Importa database da file/testo</h2>
+      <div class="row" style="margin-bottom:8px">
+        <input type="file" id="poolFile" accept=".json,.txt,.csv">
+        <select id="poolFormat">
+          <option value="ygopro">JSON YGOPRODeck (data[] con name/frameType/id)</option>
+          <option value="names">Elenco nomi (uno per riga)</option>
+        </select>
+      </div>
+      <textarea id="poolText" placeholder="…oppure incolla qui il JSON o l'elenco nomi"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn primary sm" id="poolImport">Importa database</button><button class="btn sm" id="poolClear">Svuota database</button></div>
+      <p class="small muted" id="poolInfo" style="margin-top:8px"></p>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <h2>Lingua italiana</h2>
+      <p class="small muted">Scarica i nomi italiani e li abbino via ID carta alle carte già presenti (l'inglese resta come riferimento per la banlist). Poi puoi passare a IT dall'interruttore "Lingua" nella schermata Costruisci mazzo. Le carte senza traduzione restano in inglese.</p>
+      <div class="row"><button class="btn" id="fetchIt">Scarica nomi italiani</button><span class="muted small" id="itStatus"></span></div>
+    </div>
+  </section>
+
+  <!-- ============ COMPARE ============ -->
+  <section id="tab-compare" class="hidden">
+    <div class="panel">
+      <h2>Confronta due liste</h2>
+      <p class="small muted">Incolla due decklist. Usa intestazioni di sezione (opzionale): <code>Main Deck</code> / <code>Extra Deck</code> / <code>Side Deck</code>. Righe: <code>3x Nome</code>, <code>3 Nome</code> o <code>Nome</code>.</p>
+      <div class="grid2">
+        <div><label class="small muted">Lista A (es. il mazzo dal video)</label><textarea id="cmpA" placeholder="Main Deck&#10;3x Card Trooper&#10;1 Honest&#10;…"></textarea></div>
+        <div><label class="small muted">Lista B (es. il tuo mazzo)</label><textarea id="cmpB"></textarea></div>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="btn primary sm" id="runCompare">Confronta</button><button class="btn sm" id="loadCurrentIntoB">Usa il mazzo corrente come B</button></div>
+      <div id="cmpResult" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <div class="panel" style="text-align:center;color:var(--muted);font-size:11px">
+    Dati banlist: <b>Format Library</b> (formatlibrary.com). Database carte e immagini: <b>YGOPRODeck</b> (ygoprodeck.com) — API pubblica, usata con un solo download in cache. Strumento non ufficiale, non affiliato a Konami.
+  </div>
+</main>
+
+<div id="printSheet"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ */
+/*  Edison banlist — Marzo 2010 (TCG). Fonte: yugiohedison.com/banlist  */
+/* ------------------------------------------------------------------ */
+const EDISON_2010 = {
+  forbidden: ["Yata-Garasu","Sinister Serpent","Makyura the Destructor","Magician of Faith","Tribe-Infecting Virus","Cyber Jar","Magical Scientist","Tsukuyomi","Dark Magician of Chaos","Victory Dragon","Destiny HERO - Disk Commander","Cyber-Stein","Black Luster Soldier - Envoy of the Beginning","Witch of the Black Forest","Fiber Jar","Chaos Emperor Dragon - Envoy of the End","Thousand-Eyes Restrict","Dark Strike Fighter","Change of Heart","Raigeki","Confiscation","Harpie's Feather Duster","Dimension Fusion","Mirage of Nightmare","The Forceful Sentry","Delinquent Duo","Snatch Steal","Metamorphosis","Dark Hole","Pot of Greed","Card of Safe Return","Butterfly Dagger - Elma","Premature Burial","Painful Choice","Graceful Charity","Monster Reborn","Last Will","Exchange of the Spirit","Last Turn","Time Seal","Crush Card Virus","Imperial Order","Ring of Destruction"],
+  limited: ["Summoner Monk","Blackwing - Gale the Whirlwind","Necro Gardna","Spirit Reaper","Necroface","Marshmallon","Exodia the Forbidden One","Plaguespreader Zombie","Morphing Jar","Gladiator Beast Bestiari","Gorz the Emissary of Darkness","Dark Armed Dragon","Neo-Spacian Grand Mole","Snipe Hunter","Card Trooper","Mezuki","Mind Master","Tragoedia","Night Assailant","Elemental HERO Stratos","Lumina, Lightsworn Summoner","Sangan","Rescue Cat","Chaos Sorcerer","Black Rose Dragon","Brionac, Dragon of the Ice Barrier","Goyo Guardian","Allure of Darkness","One for One","Level Limit - Area B","Overload Fusion","Mystical Space Typhoon","Heavy Storm","Megamorph","Limiter Removal","Reinforcement of the Army","Mind Control","Giant Trunade","Monster Gate","Destiny Draw","Advanced Ritual Art","Burial from a Different Dimension","Reasoning","Cold Wave","Emergency Teleport","Swords of Revealing Light","Card Destruction","Scapegoat","Foolish Burial","Charge of the Light Brigade","Brain Control","Future Fusion","Wall of Revealing Light","Return from the Different Dimension","Ojama Trio","Magical Explosion","Ceasefire","Solemn Judgment","Mirror Force","The Transmigration Prophecy","Torrential Tribute","Magic Cylinder","Trap Dustshoot","Gravity Bind","Call of the Haunted","Mind Crush"],
+  semi: ["Destiny HERO - Malicious","Dandylion","Honest","Lonefire Blossom","Judgment Dragon","Goblin Zombie","Cyber Dragon","Demise, King of Armageddon","Treeborn Frog","United We Stand","Gold Sarcophagus","Black Whirlwind","Chain Strike","Magical Stone Excavation","Bottomless Trap Hole","Royal Decree","Ultimate Offering","Skill Drain","Royal Oppression"]
+};
+const EXTRA_HINT = new Set(["black rose dragon","brionac dragon of the ice barrier","goyo guardian","thousand eyes restrict","dark strike fighter"]);
+
+/* Altri formati pre-caricati. Fonte banlist: Format Library (formatlibrary.com). */
+const BUILTIN_BANLISTS = {
+  "goat-2005": { name:"GOAT — Aprile 2005", date:"2005-04-01", format:"goat", cutoff:"2005-08-20", lists:{
+    forbidden:["Chaos Emperor Dragon - Envoy of the End","Fiber Jar","Magical Scientist","Makyura the Destructor","Witch of the Black Forest","Yata-Garasu","Butterfly Dagger - Elma","Change of Heart","Confiscation","Dark Hole","Harpie's Feather Duster","Mirage of Nightmare","Monster Reborn","Painful Choice","Raigeki","The Forceful Sentry","Imperial Order"],
+    limited:["Left Arm of the Forbidden One","Left Leg of the Forbidden One","Right Arm of the Forbidden One","Right Leg of the Forbidden One","Black Luster Soldier - Envoy of the Beginning","Breaker the Magical Warrior","Cyber Jar","D.D. Warrior Lady","Dark Magician of Chaos","Exiled Force","Exodia the Forbidden One","Injection Fairy Lily","Jinzo","Morphing Jar","Protector of the Sanctuary","Reflect Bounder","Sacred Phoenix of Nephthys","Sangan","Sinister Serpent","Tribe-Infecting Virus","Twin-Headed Behemoth","Card Destruction","Delinquent Duo","Graceful Charity","Heavy Storm","Lightning Vortex","Mage Power","Mystical Space Typhoon","Pot of Greed","Premature Burial","Snatch Steal","Swords of Revealing Light","United We Stand","Call of the Haunted","Ceasefire","Deck Devastation Virus","Magic Cylinder","Mirror Force","Reckless Greed","Ring of Destruction","Torrential Tribute"],
+    semi:["Abyss Soldier","Dark Scorpion - Chick the Yellow","Manticore of Darkness","Marauding Captain","Night Assailant","Vampire Lord","Creature Swap","Emergency Provisions","Level Limit - Area B","Nobleman of Crossout","Reinforcement of the Army","Upstart Goblin","Good Goblin Housekeeping","Gravity Bind","Last Turn"] } },
+  "tengu-2011": { name:"Tengu Plant — Settembre 2011", date:"2011-09-01", cutoff:"2011-09-17", lists:{
+    forbidden:["Chaos Emperor Dragon - Envoy of the End","Cyber Jar","Cyber-Stein","Dark Magician of Chaos","Destiny HERO - Disk Commander","Fiber Jar","Fishborg Blaster","Magical Scientist","Magician of Faith","Makyura the Destructor","Mind Master","Rescue Cat","Sinister Serpent","Substitoad","Tribe-Infecting Virus","Tsukuyomi","Victory Dragon","Witch of the Black Forest","Yata-Garasu","Thousand-Eyes Restrict","Dark Strike Fighter","Goyo Guardian","Brain Control","Butterfly Dagger - Elma","Card of Safe Return","Change of Heart","Cold Wave","Confiscation","Delinquent Duo","Dimension Fusion","Giant Trunade","Graceful Charity","Harpie's Feather Duster","Last Will","Mass Driver","Metamorphosis","Mirage of Nightmare","Painful Choice","Pot of Greed","Premature Burial","Raigeki","Snatch Steal","Temple of the Kings","The Forceful Sentry","Crush Card Virus","Exchange of the Spirit","Imperial Order","Last Turn","Ring of Destruction","Royal Oppression","Time Seal"],
+    limited:["Left Arm of the Forbidden One","Left Leg of the Forbidden One","Right Arm of the Forbidden One","Right Leg of the Forbidden One","Black Luster Soldier - Envoy of the Beginning","Blackwing - Gale the Whirlwind","Blackwing - Kalut the Moon Shadow","Dandylion","Dark Armed Dragon","Debris Dragon","Elemental HERO Stratos","Exodia the Forbidden One","Gladiator Beast Bestiari","Gorz the Emissary of Darkness","Honest","Lonefire Blossom","Lumina, Lightsworn Summoner","Marshmallon","Mezuki","Morphing Jar","Necroface","Neo-Spacian Grand Mole","Night Assailant","Plaguespreader Zombie","Sangan","Brionac, Dragon of the Ice Barrier","Formula Synchron","Legendary Six Samurai - Shi En","T.G. Hyper Librarian","Trishula, Dragon of the Ice Barrier","Advanced Ritual Art","Allure of Darkness","Black Whirlwind","Book of Moon","Burial from a Different Dimension","Card Destruction","Charge of the Light Brigade","Dark Hole","Emergency Teleport","Foolish Burial","Future Fusion","Gateway of the Six","Heavy Storm","Infernity Launcher","Level Limit - Area B","Limiter Removal","Mind Control","Monster Gate","Monster Reborn","One for One","Pot of Avarice","Primal Seed","Reasoning","Reinforcement of the Army","Scapegoat","Shien's Smoke Signal","Ceasefire","Magical Explosion","Mirror Force","Return from the Different Dimension","Solemn Judgment","The Transmigration Prophecy","Torrential Tribute","Trap Dustshoot","Wall of Revealing Light"],
+    semi:["Archlord Kristya","Card Trooper","Destiny HERO - Malicious","Necro Gardna","Summoner Monk","Tragoedia","Dewloren, Tiger King of the Ice Barrier","Chain Strike","Destiny Draw","Magical Stone Excavation","Royal Tribute","Swords of Revealing Light","Bottomless Trap Hole","Call of the Haunted","Magic Cylinder","Mind Crush","Ojama Trio","Solemn Warning"] } },
+  "redu-2012": { name:"REDU / Wind-Up — Settembre 2012", date:"2012-09-01", cutoff:"2012-10-21", lists:{
+    forbidden:["Chaos Emperor Dragon - Envoy of the End","Cyber Jar","Cyber-Stein","Dark Magician of Chaos","Destiny HERO - Disk Commander","Fiber Jar","Fishborg Blaster","Glow-Up Bulb","Magical Scientist","Magician of Faith","Makyura the Destructor","Mind Master","Rescue Cat","Sinister Serpent","Substitoad","Tribe-Infecting Virus","Victory Dragon","Witch of the Black Forest","Yata-Garasu","Thousand-Eyes Restrict","Brionac, Dragon of the Ice Barrier","Dark Strike Fighter","Goyo Guardian","Trishula, Dragon of the Ice Barrier","Brain Control","Butterfly Dagger - Elma","Card of Safe Return","Change of Heart","Cold Wave","Confiscation","Delinquent Duo","Dimension Fusion","Future Fusion","Giant Trunade","Graceful Charity","Harpie's Feather Duster","Last Will","Mass Driver","Metamorphosis","Mirage of Nightmare","Painful Choice","Pot of Greed","Premature Burial","Raigeki","Snatch Steal","Temple of the Kings","The Forceful Sentry","Crush Card Virus","Exchange of the Spirit","Imperial Order","Last Turn","Ring of Destruction","Royal Oppression","Time Seal","Trap Dustshoot"],
+    limited:["Left Arm of the Forbidden One","Left Leg of the Forbidden One","Right Arm of the Forbidden One","Right Leg of the Forbidden One","Black Luster Soldier - Envoy of the Beginning","Blackwing - Gale the Whirlwind","Chaos Sorcerer","Dandylion","Dark Armed Dragon","Elemental HERO Stratos","Exodia the Forbidden One","Gladiator Beast Bestiari","Gorz the Emissary of Darkness","Honest","Inzektor Dragonfly","Inzektor Hornet","Lonefire Blossom","Mezuki","Morphing Jar","Necroface","Neo-Spacian Grand Mole","Night Assailant","Plaguespreader Zombie","Red-Eyes Darkness Metal Dragon","Sangan","Spore","T.G. Striker","Tsukuyomi","Evigishki Gustkraken","Formula Synchron","Legendary Six Samurai - Shi En","T.G. Hyper Librarian","Wind-Up Carrier Zenmaity","Advanced Ritual Art","Allure of Darkness","Black Whirlwind","Book of Moon","Burial from a Different Dimension","Card Destruction","Charge of the Light Brigade","Dark Hole","Foolish Burial","Gateway of the Six","Heavy Storm","Infernity Launcher","Limiter Removal","Mind Control","Monster Gate","Monster Reborn","One for One","Pot of Avarice","Primal Seed","Reinforcement of the Army","Scapegoat","Ceasefire","Magical Explosion","Return from the Different Dimension","Solemn Judgment","The Transmigration Prophecy","Ultimate Offering","Wall of Revealing Light"],
+    semi:["Archlord Kristya","Blackwing - Kalut the Moon Shadow","Card Trooper","Debris Dragon","Destiny HERO - Malicious","Lumina, Lightsworn Summoner","Reborn Tengu","Rescue Rabbit","Summoner Monk","The Agent of Mystery - Earth","Tour Guide From the Underworld","Tragoedia","Dewloren, Tiger King of the Ice Barrier","A Hero Lives","Chain Strike","E - Emergency Call","Hieratic Seal of Convocation","Magical Stone Excavation","Pot of Duality","Reasoning","Royal Tribute","Shien's Smoke Signal","Bottomless Trap Hole","Mind Crush","Mirror Force","Ojama Trio","Solemn Warning","Torrential Tribute"] } },
+  "hat-2014": { name:"HAT — Aprile 2014", date:"2014-04-01", cutoff:"2014-07-12", lists:{
+    forbidden:["Burner, Dragon Ruler of Sparks","Chaos Emperor Dragon - Envoy of the End","Cyber Jar","Cyber-Stein","Dark Magician of Chaos","Destiny HERO - Disk Commander","Elemental HERO Stratos","Fiber Jar","Fishborg Blaster","Glow-Up Bulb","Lightning, Dragon Ruler of Drafts","Magical Scientist","Makyura the Destructor","Mind Master","Morphing Jar","Morphing Jar #2","Reactan, Dragon Ruler of Pebbles","Rescue Cat","Sangan","Sinister Serpent","Stream, Dragon Ruler of Droplets","Substitoad","Tribe-Infecting Virus","Victory Dragon","Witch of the Black Forest","Yata-Garasu","Thousand-Eyes Restrict","Brionac, Dragon of the Ice Barrier","Dark Strike Fighter","Goyo Guardian","Trishula, Dragon of the Ice Barrier","Number 16: Shock Master","Wind-Up Carrier Zenmaity","Brain Control","Butterfly Dagger - Elma","Card Destruction","Card of Safe Return","Change of Heart","Cold Wave","Confiscation","Delinquent Duo","Dimension Fusion","Dragon Ravine","Future Fusion","Gateway of the Six","Giant Trunade","Graceful Charity","Harpie's Feather Duster","Heavy Storm","Last Will","Mass Driver","Metamorphosis","Mirage of Nightmare","Monster Reborn","Painful Choice","Pot of Avarice","Pot of Greed","Premature Burial","Raigeki","Snatch Steal","Spellbook of Judgment","Super Rejuvenation","Temple of the Kings","The Forceful Sentry","Crush Card Virus","Exchange of the Spirit","Imperial Order","Last Turn","Return from the Different Dimension","Ring of Destruction","Royal Oppression","Self-Destruct Button","Sixth Sense","Solemn Judgment","Time Seal","Trap Dustshoot","Ultimate Offering"],
+    limited:["Left Arm of the Forbidden One","Left Leg of the Forbidden One","Right Arm of the Forbidden One","Right Leg of the Forbidden One","Atlantean Dragoons","Black Luster Soldier - Envoy of the Beginning","Blackwing - Gale the Whirlwind","Blaster, Dragon Ruler of Infernos","Brotherhood of the Fire Fist - Spirit","Coach Soldier Wolfbark","Dandylion","Dark Armed Dragon","Debris Dragon","Deep Sea Diva","Exodia the Forbidden One","Genex Ally Birdman","Gladiator Beast Bestiari","Gorz the Emissary of Darkness","Honest","Inzektor Dragonfly","Inzektor Hornet","Magician of Faith","Mermail Abyssgunde","Neo-Spacian Grand Mole","Night Assailant","Red-Eyes Darkness Metal Dragon","Redox, Dragon Ruler of Boulders","Rescue Rabbit","Tempest, Dragon Ruler of Storms","Thunder King Rai-Oh","Tidal, Dragon Ruler of Waterfalls","Wind-Up Magician","Evigishki Gustkraken","Evigishki Mind Augus","Dewloren, Tiger King of the Ice Barrier","Formula Synchron","Legendary Six Samurai - Shi En","T.G. Hyper Librarian","Allure of Darkness","Book of Moon","Burial from a Different Dimension","Charge of the Light Brigade","Dark Hole","Dimensional Fissure","Divine Wind of Mist Valley","Final Countdown","Foolish Burial","Gold Sarcophagus","Infernity Launcher","Limiter Removal","Mind Control","Monster Gate","One Day of Peace","One for One","Reinforcement of the Army","Rekindling","Royal Tribute","Sacred Sword of Seven Stars","Spellbook of Fate","Bottomless Trap Hole","Ceasefire","Compulsory Evacuation Device","Eradicator Epidemic Virus","Infernity Barrier","Macro Cosmos","Magical Explosion","Solemn Warning","Soul Drain","The Transmigration Prophecy","Torrential Tribute","Wall of Revealing Light"],
+    semi:["Card Trooper","Chaos Sorcerer","Lonefire Blossom","Necroface","Reborn Tengu","Summoner Monk","Tragoedia","Advanced Ritual Art","Chain Strike","Hieratic Seal of Convocation","Reasoning","Dimensional Prison","Mirror Force","Ojama Trio"] } },
+  "unlimited": { name:"Unlimited (nessuna banlist)", date:"", unlimited:true, lists:{forbidden:[],limited:[],semi:[]} }
+};
+
+/* ------------------------- utils ------------------------- */
+function norm(s){
+  return (s||"").toLowerCase().normalize("NFKD")
+    .replace(/[‘’'`]/g,"").replace(/[–—\-]/g," ")
+    .replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+}
+const LIMIT = {forbidden:0,limited:1,semi:2,free:3};
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+let toastT;
+function toast(msg,bad){const t=document.getElementById("toast");t.textContent=msg;t.className="show"+(bad?" bad":"");clearTimeout(toastT);toastT=setTimeout(()=>t.className="",2600);}
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ------------------------- state ------------------------- */
+let banlists = lsGet("edison_banlists", null);
+if(!banlists){ banlists = { "edison-2010": buildBanlistObj("Edison — Marzo 2010 (TCG)","2010-03-01",EDISON_2010,"edison") }; }
+if(banlists["edison-2010"]){ if(!banlists["edison-2010"].format)banlists["edison-2010"].format="edison"; if(!banlists["edison-2010"].cutoff)banlists["edison-2010"].cutoff="2010-04-24"; }
+for(const _id in BUILTIN_BANLISTS){ if(!banlists[_id]){ const def=BUILTIN_BANLISTS[_id]; const o=buildBanlistObj(def.name,def.date,def.lists,def.format||""); if(def.cutoff)o.cutoff=def.cutoff; if(def.unlimited)o.unlimited=true; banlists[_id]=o; } }
+lsSet("edison_banlists",banlists);
+let activeBanlistId = lsGet("edison_active_bl","edison-2010");
+if(!banlists[activeBanlistId]) activeBanlistId = Object.keys(banlists)[0];
+
+let pool = lsGet("edison_pool", {});               // normKey -> {name, extra, id, nameIt}  (DB per ricerca)
+let poolMeta = lsGet("edison_pool_meta",{source:"",count:0,updated:""});
+let legalSets = lsGet("edison_legalsets",{});      // banlistId -> {normKey:1}  (pool legale per formato)
+let showImages = lsGet("edison_showimg",false);
+let lang = lsGet("edison_lang","en");              // "en" | "it"
+let viewMode = lsGet("edison_view","list");        // "list" | "grid"
+let nameIndex = {};                                // normalized(any name) -> canonical key
+let deck = {};                                     // normKey -> {name, main, extra, side, extra_type}
+
+/* ------------------------- banlist helpers ------------------------- */
+function buildBanlistObj(name,date,src,format){
+  const entries={};
+  for(const s of ["forbidden","limited","semi"]) (src[s]||[]).forEach(n=>{entries[norm(n)]={name:n,status:s};});
+  return {name,date,entries,format:format||""};
+}
+function activeBanlist(){return banlists[activeBanlistId];}
+function statusOf(key){const e=activeBanlist().entries[key];return e?e.status:"free";}
+function displayBanlistName(key){const e=activeBanlist().entries[key];return e?e.name:null;}
+function limitOf(key){return LIMIT[statusOf(key)];}
+
+/* ------------------------- pool helpers ------------------------- */
+function displayName(key){ const p=pool[key]; if(lang==="it"&&p&&p.nameIt)return p.nameIt; if(p)return p.name; return displayBanlistName(key)||null; }
+function knownName(key){ return displayName(key); }
+function buildIndex(){
+  nameIndex={};
+  for(const k in pool){ nameIndex[k]=k; if(pool[k].nameIt)nameIndex[norm(pool[k].nameIt)]=k; }
+  const bl=activeBanlist().entries; for(const k in bl){ if(!(k in nameIndex))nameIndex[k]=k; }
+}
+function canonicalKey(raw){ const n=norm(raw); return nameIndex[n]||n; }
+function anyItalian(){ for(const k in pool)if(pool[k].nameIt)return true; return false; }
+function isExtraCard(key){ if(pool[key])return !!pool[key].extra; if(EXTRA_HINT.has(key))return true; return false; }
+function poolCount(){return Object.keys(pool).length;}
+function inFormat(key){ const bl=activeBanlist(); if(bl.unlimited)return true; if(bl.entries[key])return true; const ls=legalSets[activeBanlistId]; return !!(ls&&ls[key]); }
+function legalityAvailable(){ if(activeBanlist().unlimited)return true; const ls=legalSets[activeBanlistId]; return !!(ls&&Object.keys(ls).length); }
+function formatPoolCount(){ const ls=legalSets[activeBanlistId]; return ls?Object.keys(ls).length:0; }
+function markLegal(arr){ const ls=legalSets[activeBanlistId]||{}; arr.forEach(c=>{ if(c&&c.name)ls[norm(c.name)]=1; }); legalSets[activeBanlistId]=ls; }
+function poolHasDates(){ for(const k in pool)if(pool[k].date)return true; return false; }
+function computeLegality(){ const bl=activeBanlist(); if(bl.unlimited){legalSets[activeBanlistId]={};return 0;} if(!bl.cutoff)return -1; const ls={}; let n=0; for(const k in pool){ const d=pool[k].date; if(d&&d<=bl.cutoff){ls[k]=1;n++;} } legalSets[activeBanlistId]=ls; return n; }
+function imgUrl(key){const e=pool[key];return (e&&e.id)?("https://images.ygoprodeck.com/images/cards_small/"+e.id+".jpg"):null;}
+function idOf(key){const e=pool[key];return e&&e.id?e.id:null;}
+function savePool(){const ok=lsSet("edison_pool",pool);lsSet("edison_pool_meta",poolMeta);lsSet("edison_legalsets",legalSets);if(!ok)toast("Database troppo grande per il salvataggio permanente: valido per questa sessione.",true);}
+
+/* ------------------------- deck logic ------------------------- */
+function totalCopies(key){const d=deck[key];return d?(d.main+d.extra+d.side):0;}
+function ensure(key,name,extra){ if(!deck[key]) deck[key]={name:name,main:0,extra:0,side:0,extra_type:extra}; return deck[key]; }
+function tryAddByKey(key, zonePref, rawFallback){
+  const st=statusOf(key); const canonical=displayName(key)||rawFallback||key;
+  if(document.getElementById("strictPool").checked && legalityAvailable() && !inFormat(key)){
+    toast('"'+canonical+'" è fuori dal formato attivo ('+activeBanlist().name+') — non consentita.',true); return; }
+  if(st==="forbidden"){ toast('⛔ "'+canonical+'" è VIETATA nel formato Edison.',true); return; }
+  const extra=isExtraCard(key); let zone=zonePref||(extra?"extra":"main");
+  if(extra&&zone==="main")zone="extra"; if(!extra&&zone==="extra")zone="main";
+  if(totalCopies(key)>=LIMIT[st]){
+    const lbl=st==="limited"?"Limitata (max 1)":st==="semi"?"Semi-limitata (max 2)":"max 3 copie";
+    toast('⛔ "'+canonical+'": limite raggiunto — '+lbl+' su tutto il mazzo.',true); return; }
+  const d=ensure(key,canonical,extra); d[zone]++; d.name=canonical; d.extra_type=extra; render();
+}
+function tryAdd(rawName, zonePref){ const n=(rawName||"").trim(); if(!n)return; tryAddByKey(canonicalKey(n),zonePref,n); }
+function changeQty(key,zone,delta){
+  const d=deck[key]; if(!d)return;
+  if(delta>0){ if(totalCopies(key)>=limitOf(key)){const st=statusOf(key);toast('⛔ Limite raggiunto — '+(st==="limited"?"max 1":st==="semi"?"max 2":"max 3")+'.',true);return;} d[zone]++; }
+  else{ d[zone]=Math.max(0,d[zone]-1); if(totalCopies(key)===0)delete deck[key]; }
+  render();
+}
+function moveCard(key,from,to){
+  const d=deck[key]; if(!d||d[from]<=0)return;
+  if(to==="extra"&&!d.extra_type){toast("Solo Fusion/Synchro nell'Extra Deck.",true);return;}
+  if(to==="main"&&d.extra_type){toast("Una carta Extra Deck non può stare nel Main.",true);return;}
+  d[from]--; d[to]++; render();
+}
+
+/* ------------------------- rendering ------------------------- */
+function sectionCount(zone){let n=0;for(const k in deck)n+=deck[k][zone];return n;}
+function render(){
+  buildIndex();
+  ["main","extra","side"].forEach(zone=>{
+    const host=document.getElementById("list-"+zone);
+    const rows=Object.keys(deck).filter(k=>deck[k][zone]>0).sort((a,b)=>(displayName(a)||deck[a].name).localeCompare(displayName(b)||deck[b].name));
+    if(rows.length===0){host.innerHTML='<div class="empty">— vuoto —</div>';return;}
+    if(viewMode==="grid"){host.innerHTML='<div class="deck-grid">'+rows.map(k=>tileHtml(k,zone)).join("")+'</div>';return;}
+    host.innerHTML=rows.map(k=>{
+      const d=deck[k],st=statusOf(k),nm=displayName(k)||d.name; const movers=[];
+      if(zone!=="side")movers.push('<button class="btn sm mv" data-mv="'+k+'|'+zone+'|side">→Side</button>');
+      if(zone==="side"){ if(d.extra_type)movers.push('<button class="btn sm mv" data-mv="'+k+'|side|extra">→Extra</button>'); else movers.push('<button class="btn sm mv" data-mv="'+k+'|side|main">→Main</button>'); }
+      const img=(showImages&&imgUrl(k))?('<img class="thumb" loading="lazy" src="'+imgUrl(k)+'" onerror="this.style.display=\'none\'">'):'';
+      return '<div class="card-row"><span class="dot '+st+'"></span>'+img
+        +'<span class="stepper"><button data-dec="'+k+'|'+zone+'">−</button></span>'
+        +'<span class="qty">'+d[zone]+'</span>'
+        +'<span class="stepper"><button data-inc="'+k+'|'+zone+'">+</button></span>'
+        +'<span class="name" title="'+esc(nm)+'">'+esc(nm)+'</span>'
+        +(st!=="free"?'<span class="tag '+st+'">'+(st==="semi"?"semi":st==="limited"?"lim":"ban")+'</span>':'')
+        +movers.join("")+'</div>';
+    }).join("");
+  });
+  const cM=sectionCount("main"),cE=sectionCount("extra"),cS=sectionCount("side");
+  setBadge("cnt-main",cM,cM>=40&&cM<=60); setBadge("cnt-extra",cE,cE<=15); setBadge("cnt-side",cS,cS<=15);
+  renderValidation(cM,cE,cS);
+  document.getElementById("activeBanlistName").textContent=activeBanlist().name;
+  document.getElementById("poolStatus").textContent= poolCount()>0 ? ("Pool: "+poolCount()+" carte"+(poolMeta.source?(" · "+poolMeta.source):"")) : "Pool carte: solo banlist";
+}
+function setBadge(id,n,ok){const el=document.getElementById(id);el.textContent=n;el.className="count-badge "+(ok?"ok":"bad");}
+function tileHtml(k,zone){
+  const d=deck[k],st=statusOf(k),nm=displayName(k)||d.name,url=imgUrl(k);
+  const img=url?('<img loading="lazy" src="'+url+'" onerror="this.parentNode.classList.add(\'noimg\');this.remove()">'):'';
+  const cls=url?'':' noimg';
+  const mover= zone==="side" ? (d.extra_type?'<button class="tmv" data-mv="'+k+'|side|extra">Extra</button>':'<button class="tmv" data-mv="'+k+'|side|main">Main</button>')
+                             : '<button class="tmv" data-mv="'+k+'|'+zone+'|side">Side</button>';
+  return '<div class="tile '+st+cls+'" title="'+esc(nm)+'">'+img
+    +'<span class="tqty">'+d[zone]+'</span>'
+    +'<span class="tctrl"><button data-inc="'+k+'|'+zone+'">+</button><button data-dec="'+k+'|'+zone+'">−</button></span>'
+    +'<span class="tmvwrap">'+mover+'</span>'
+    +'<span class="tname">'+esc(nm)+'</span></div>';
+}
+function renderValidation(cM,cE,cS){
+  const v=[]; const line=(cls,ico,txt)=>'<div class="val-line"><span class="ico '+cls+'">'+ico+'</span><span>'+txt+'</span></div>';
+  v.push((cM>=40&&cM<=60)?line("ok-ico","✓","Main Deck: "+cM+" (40–60) ✓"):line("bad-ico","✕","Main Deck: "+cM+" — deve essere 40–60"));
+  v.push((cE<=15)?line("ok-ico","✓","Extra Deck: "+cE+" (max 15) ✓"):line("bad-ico","✕","Extra Deck: "+cE+" — max 15"));
+  v.push((cS<=15)?line("ok-ico","✓","Side Deck: "+cS+" (max 15) ✓"):line("bad-ico","✕","Side Deck: "+cS+" — max 15"));
+  let issues=0;
+  for(const k in deck){const st=statusOf(k),tc=totalCopies(k);
+    if(st==="forbidden"){v.push(line("bad-ico","⛔",'"'+esc(deck[k].name)+'" è VIETATA'));issues++;}
+    else if(tc>LIMIT[st]){v.push(line("bad-ico","⛔",'"'+esc(deck[k].name)+'": '+tc+' copie ma il limite è '+LIMIT[st]));issues++;}}
+  const legal=(cM>=40&&cM<=60)&&cE<=15&&cS<=15&&issues===0;
+  v.unshift(legal?line("ok-ico","●","<b>Mazzo legale</b> — tutto quadra."):line("warn-ico","●","<b>Non ancora legale</b> — vedi sotto."));
+  document.getElementById("validation").innerHTML=v.join("");
+}
+
+/* ------------------------- autocomplete ------------------------- */
+const searchInput=document.getElementById("searchInput"), acEl=document.getElementById("ac");
+let acItems=[], acActive=-1;
+function acSource(){
+  const map=new Map();
+  for(const k in pool) map.set(k,{en:pool[k].name,it:pool[k].nameIt||"",extra:pool[k].extra});
+  const bl=activeBanlist().entries;
+  for(const k in bl) if(!map.has(k)) map.set(k,{en:bl[k].name,it:"",extra:EXTRA_HINT.has(k)});
+  return map;
+}
+function updateAC(){
+  const q=norm(searchInput.value);
+  if(!q){acEl.className="ac";acEl.innerHTML="";acItems=[];return;}
+  const src=acSource(); const res=[];
+  const strict=document.getElementById("strictPool").checked && legalityAvailable();
+  for(const [k,v] of src){
+    if(strict && !inFormat(k)) continue;
+    const ne=norm(v.en), ni=v.it?norm(v.it):"";
+    if(ne.includes(q)||(ni&&ni.includes(q))){ res.push({key:k,name:displayName(k)||v.en,extra:v.extra,st:statusOf(k),starts:(ne.startsWith(q)||(ni&&ni.startsWith(q)))?1:0}); }
+  }
+  res.sort((a,b)=>(b.starts-a.starts)||a.name.length-b.name.length||a.name.localeCompare(b.name));
+  acItems=res.slice(0,40); acActive=-1;
+  if(acItems.length===0){acEl.className="ac";acEl.innerHTML="";return;}
+  acEl.innerHTML=acItems.map((it,i)=>{
+    const tag=it.st!=="free"?'<span class="tag '+it.st+'">'+(it.st==="semi"?"semi":it.st==="limited"?"lim":"ban")+'</span>':'';
+    const img=(showImages&&imgUrl(it.key))?('<img loading="lazy" src="'+imgUrl(it.key)+'" onerror="this.style.display=\'none\'">'):'';
+    return '<div class="ac-item" data-i="'+i+'">'+img+'<span class="dot '+it.st+'"></span><span class="nm">'+esc(it.name)+'</span>'+tag+'<span class="zone">'+(it.extra?"Extra":"Main")+'</span></div>';
+  }).join("");
+  acEl.className="ac show";
+}
+searchInput.addEventListener("input",updateAC);
+searchInput.addEventListener("keydown",e=>{
+  if(e.key==="ArrowDown"){e.preventDefault();acActive=Math.min(acItems.length-1,acActive+1);paintAC();}
+  else if(e.key==="ArrowUp"){e.preventDefault();acActive=Math.max(0,acActive-1);paintAC();}
+  else if(e.key==="Enter"){e.preventDefault();
+    if(acActive>=0&&acItems[acActive])tryAddByKey(acItems[acActive].key,null,acItems[acActive].name);
+    else if(acItems.length>0)tryAddByKey(acItems[0].key,null,acItems[0].name);
+    else tryAdd(searchInput.value);
+    searchInput.value="";updateAC();}
+  else if(e.key==="Escape")acEl.className="ac";
+});
+function paintAC(){[...acEl.children].forEach((c,i)=>c.classList.toggle("active",i===acActive));}
+acEl.addEventListener("click",e=>{const it=e.target.closest(".ac-item");if(!it)return;const x=acItems[+it.dataset.i];tryAddByKey(x.key,null,x.name);searchInput.value="";updateAC();searchInput.focus();});
+document.addEventListener("click",e=>{if(!e.target.closest(".search-wrap"))acEl.className="ac";});
+document.getElementById("showImages").addEventListener("change",e=>{showImages=e.target.checked;lsSet("edison_showimg",showImages);render();updateAC();});
+document.getElementById("langSel").addEventListener("change",e=>{lang=e.target.value;lsSet("edison_lang",lang);render();updateAC();if(lang==="it"&&poolCount()>0&&!anyItalian())fetchItalian();});
+document.getElementById("viewSel").addEventListener("change",e=>{viewMode=e.target.value;lsSet("edison_view",viewMode);render();});
+document.getElementById("strictPool").addEventListener("change",e=>{ if(e.target.checked&&!legalityAvailable())toast("Per bloccare le carte fuori-formato definisci prima il pool del formato attivo (tab Database carte).",true); updateAC(); });
+
+document.querySelector(".deckcols").addEventListener("click",e=>{
+  const t=e.target;
+  if(t.dataset.inc){const[k,z]=t.dataset.inc.split("|");changeQty(k,z,1);}
+  else if(t.dataset.dec){const[k,z]=t.dataset.dec.split("|");changeQty(k,z,-1);}
+  else if(t.dataset.mv){const[k,f,to]=t.dataset.mv.split("|");moveCard(k,f,to);}
+});
+
+/* ------------------------- tabs ------------------------- */
+document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  ["build","config","db","compare"].forEach(t=>document.getElementById("tab-"+t).classList.toggle("hidden",t!==btn.dataset.tab));
+  if(btn.dataset.tab==="config")renderBanlistConfig();
+}));
+
+/* ------------------------- banlist config UI ------------------------- */
+function refreshBanlistSelect(){
+  const sel=document.getElementById("banlistSelect");
+  sel.innerHTML=Object.keys(banlists).map(id=>'<option value="'+id+'"'+(id===activeBanlistId?" selected":"")+'>'+esc(banlists[id].name)+'</option>').join("");
+}
+function renderBanlistConfig(){
+  refreshBanlistSelect(); const bl=activeBanlist();
+  document.getElementById("banlistMeta").textContent=(bl.date?("Data: "+bl.date+" · "):"")+Object.keys(bl.entries).length+" carte";
+  const groups={forbidden:[],limited:[],semi:[]};
+  for(const k in bl.entries)groups[bl.entries[k].status].push(bl.entries[k].name);
+  for(const g of ["forbidden","limited","semi"]){
+    groups[g].sort((a,b)=>a.localeCompare(b));
+    document.getElementById("bl-cnt-"+g).textContent=groups[g].length;
+    document.getElementById("bl-"+g).innerHTML=groups[g].map(n=>'<div class="bl-item"><span style="flex:1">'+esc(n)+'</span><span class="x" data-blx="'+esc(norm(n))+'">✕</span></div>').join("")||'<div class="empty">—</div>';
+  }
+}
+document.getElementById("banlistSelect").addEventListener("change",e=>{
+  activeBanlistId=e.target.value;lsSet("edison_active_bl",activeBanlistId);
+  // se non ho ancora la legalità di questo formato ma ho le carte con le date, calcolala al volo
+  if(!legalityAvailable() && activeBanlist().cutoff && poolHasDates()){ computeLegality(); savePool(); }
+  renderBanlistConfig();updatePoolInfo();updateAC();render();
+});
+document.querySelector("#tab-config").addEventListener("click",e=>{ if(e.target.dataset.blx){delete activeBanlist().entries[e.target.dataset.blx];lsSet("edison_banlists",banlists);renderBanlistConfig();render();} });
+document.getElementById("blAdd").addEventListener("click",()=>{
+  const n=document.getElementById("blAddName").value.trim();if(!n)return;
+  activeBanlist().entries[norm(n)]={name:n,status:document.getElementById("blAddStatus").value};
+  lsSet("edison_banlists",banlists);document.getElementById("blAddName").value="";renderBanlistConfig();render();toast("Banlist aggiornata.");
+});
+document.getElementById("delBanlist").addEventListener("click",()=>{
+  if(Object.keys(banlists).length<=1){toast("Deve restare almeno una banlist.",true);return;}
+  if(!confirm("Eliminare la banlist \""+activeBanlist().name+"\"?"))return;
+  delete banlists[activeBanlistId];activeBanlistId=Object.keys(banlists)[0];
+  lsSet("edison_banlists",banlists);lsSet("edison_active_bl",activeBanlistId);renderBanlistConfig();render();
+});
+document.getElementById("blImport").addEventListener("click",()=>{
+  const name=document.getElementById("blNewName").value.trim()||("Banlist "+new Date().toISOString().slice(0,10));
+  const fmt=document.getElementById("blFormat").value, txt=document.getElementById("blImportText").value; let entries={};
+  try{
+    if(fmt==="ygopro"){const j=JSON.parse(txt);(j.data||j).forEach(c=>{const bi=c.banlist_info||{};let s=null;const v=bi.ban_tcg||bi.ban_goat||bi.ban_ocg;if(v==="Banned")s="forbidden";else if(v==="Limited")s="limited";else if(v==="Semi-Limited")s="semi";if(s)entries[norm(c.name)]={name:c.name,status:s};});}
+    else if(fmt==="csv"){txt.split(/\r?\n/).forEach(l=>{l=l.trim();if(!l)return;const p=l.split(/[,;\t]/);const nm=p[0].trim();let s=(p[1]||"").trim().toLowerCase();if(/forb|ban|viet/.test(s))s="forbidden";else if(/semi/.test(s))s="semi";else if(/lim/.test(s))s="limited";else s="limited";if(nm)entries[norm(nm)]={name:nm,status:s};});}
+    else{let cur=null;txt.split(/\r?\n/).forEach(l=>{const t=l.trim();if(!t)return;const low=t.toLowerCase();if(/^forbidden|^vietat|^banned/.test(low)){cur="forbidden";return;}if(/^semi/.test(low)){cur="semi";return;}if(/^limited|^limitat/.test(low)){cur="limited";return;}if(cur){const nm=t.replace(/^[-*•\d.]+\s*/,"").trim();if(nm)entries[norm(nm)]={name:nm,status:cur};}});}
+  }catch(err){toast("Errore parsing: "+err.message,true);return;}
+  if(Object.keys(entries).length===0){toast("Nessuna carta riconosciuta.",true);return;}
+  const id="bl-"+Date.now(); banlists[id]={name,date:"",entries,format:(document.getElementById("blNewFormat").value||"").trim()}; activeBanlistId=id;
+  lsSet("edison_banlists",banlists);lsSet("edison_active_bl",id);
+  document.getElementById("blNewName").value="";document.getElementById("blNewFormat").value="";document.getElementById("blImportText").value="";
+  renderBanlistConfig();updatePoolInfo();updateAC();render();toast("Banlist importata: "+Object.keys(entries).length+" carte.");
+});
+document.getElementById("blExport").addEventListener("click",()=>{
+  const bl=activeBanlist();const g={forbidden:[],limited:[],semi:[]};
+  for(const k in bl.entries)g[bl.entries[k].status].push(bl.entries[k].name);
+  document.getElementById("blImportText").value="Forbidden:\n"+g.forbidden.sort().join("\n")+"\n\nLimited:\n"+g.limited.sort().join("\n")+"\n\nSemi-Limited:\n"+g.semi.sort().join("\n");
+  toast("Banlist attiva esportata nel box.");
+});
+
+/* ------------------------- DB / pool ------------------------- */
+const YGO="https://db.ygoprodeck.com/api/v7/cardinfo.php";
+function ingestYgoproArray(arr){
+  let n=0; arr.forEach(c=>{ if(!c||!c.name)return; const ft=(c.frameType||"").toLowerCase(); const key=norm(c.name); const prev=pool[key];
+    const dt=(c.misc_info&&c.misc_info[0]&&c.misc_info[0].tcg_date)||(prev&&prev.date)||null;
+    pool[key]={name:c.name, extra:/fusion|synchro|xyz|link/.test(ft), id:c.id||null, nameIt:(prev&&prev.nameIt)||undefined, date:dt}; n++; }); return n;
+}
+async function doFetch(update){
+  const src=document.getElementById("dbSource").value;
+  const bl=activeBanlist(); const fmt=bl.format||"";
+  const s=document.getElementById("fetchStatus"); s.textContent=update?"Aggiorno…":"Scarico…";
+  try{
+    const wantAll = (src==="all") || (!fmt);   // formati senza pool YGOPRODeck: servono tutte le carte + date
+    if(!wantAll){
+      const r=await fetch(YGO+"?format="+encodeURIComponent(fmt)); if(!r.ok)throw new Error("HTTP "+r.status);
+      const j=await r.json(); if(!update)pool={}; ingestYgoproArray(j.data||[]);
+      if(!update)legalSets[activeBanlistId]={}; markLegal(j.data||[]);
+      poolMeta={source:"Pool "+bl.name,count:poolCount(),updated:new Date().toISOString()};
+    }else{
+      s.textContent="Scarico tutte le carte (con date)…";
+      const r=await fetch(YGO+"?misc=yes"); if(!r.ok)throw new Error("HTTP "+r.status);
+      const j=await r.json(); if(!update)pool={}; ingestYgoproArray(j.data||[]);
+      if(fmt){ s.textContent="Recupero pool curato del formato…"; try{const r2=await fetch(YGO+"?format="+encodeURIComponent(fmt)); if(r2.ok){const j2=await r2.json(); legalSets[activeBanlistId]={}; markLegal(j2.data||[]);}else computeLegality();}catch(e){computeLegality();} }
+      else computeLegality();
+      poolMeta={source:"Tutte le carte",count:poolCount(),updated:new Date().toISOString()};
+    }
+    savePool(); updatePoolInfo(); render();
+    s.textContent="✓ "+poolCount()+" carte in DB · pool «"+bl.name+"»: "+formatPoolCount()+" carte.";
+    toast(update?"Aggiornato.":"Fatto.");
+  }catch(err){ s.textContent="✕ "+err.message; toast("Non riuscito: "+err.message,true); }
+}
+document.getElementById("fetchPool").addEventListener("click",()=>doFetch(false));
+document.getElementById("updatePool").addEventListener("click",()=>doFetch(true));
+async function fetchItalian(){
+  if(poolCount()===0){toast("Scarica prima il database carte.",true);return;}
+  const src=document.getElementById("dbSource").value;
+  const url=src==="all"?"https://db.ygoprodeck.com/api/v7/cardinfo.php?language=it":"https://db.ygoprodeck.com/api/v7/cardinfo.php?format=edison&language=it";
+  const s=document.getElementById("itStatus");s.textContent="Scarico nomi IT…";
+  try{
+    const r=await fetch(url);if(!r.ok)throw new Error("HTTP "+r.status);
+    const j=await r.json();const byId={};for(const k in pool)if(pool[k].id)byId[pool[k].id]=k;
+    let n=0;(j.data||[]).forEach(c=>{const k=byId[c.id];if(k){pool[k].nameIt=c.name;n++;}});
+    savePool();render();updateAC();s.textContent="✓ "+n+" nomi italiani abbinati.";toast("Nomi italiani: "+n+" carte.");
+  }catch(err){s.textContent="✕ "+err.message;toast("Download IT non riuscito ("+err.message+").",true);}
+}
+document.getElementById("fetchIt").addEventListener("click",fetchItalian);
+document.getElementById("recalcLegal").addEventListener("click",()=>{
+  const bl=activeBanlist();
+  if(bl.unlimited){toast("Unlimited: nessuna restrizione di pool.");return;}
+  if(!bl.cutoff){toast("Formato senza data-cutoff: usa Scarica o importa il pool a mano.",true);return;}
+  if(!poolHasDates()){toast("Serve il database completo con le date: fai un download «Tutte le carte» una volta.",true);return;}
+  const n=computeLegality(); savePool(); updatePoolInfo(); render();
+  toast("Ricalcolato per data: "+n+" carte legali in «"+bl.name+"».");
+});
+document.getElementById("poolFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{document.getElementById("poolText").value=rd.result;toast("File caricato nel box. Premi Importa.");};rd.readAsText(f);});
+document.getElementById("poolImport").addEventListener("click",()=>{
+  const fmt=document.getElementById("poolFormat").value, txt=document.getElementById("poolText").value.trim();
+  if(!txt){toast("Incolla o carica dei dati prima.",true);return;} let n=0;
+  try{ if(fmt==="ygopro"){const j=JSON.parse(txt);const arr=j.data||j;n=ingestYgoproArray(arr);markLegal(arr);poolMeta={source:"Import JSON",count:poolCount(),updated:new Date().toISOString()};}
+    else{const ls=legalSets[activeBanlistId]||{};txt.split(/\r?\n/).forEach(l=>{const nm=l.trim();if(!nm)return;const k=norm(nm);if(!pool[k]){pool[k]={name:nm,extra:EXTRA_HINT.has(k),id:null};n++;}ls[k]=1;});legalSets[activeBanlistId]=ls;poolMeta={source:"Import nomi",count:poolCount(),updated:new Date().toISOString()};}
+  }catch(err){toast("Errore parsing: "+err.message,true);return;}
+  savePool();updatePoolInfo();render();toast("Importate "+n+" carte (pool del formato attivo aggiornato).");
+});
+document.getElementById("poolClear").addEventListener("click",()=>{ if(!confirm("Svuotare il database carte?"))return; pool={};poolMeta={source:"",count:0,updated:"",edison:false};lsSet("edison_pool",pool);lsSet("edison_pool_meta",poolMeta);updatePoolInfo();render(); });
+function updatePoolInfo(){
+  const n=poolCount();
+  document.getElementById("poolInfo").innerHTML=n>0?("Database ricerca: <b>"+n+" carte</b>"+(poolMeta.source?(" · "+poolMeta.source):"")+". Autocomplete, routing Extra Deck e .ydk attivi.<br>"+(legalityAvailable()?("<span style='color:var(--ok)'>Pool legale del formato «"+esc(activeBanlist().name)+"»: attivo ("+formatPoolCount()+" carte)</span> — l'opzione \"Solo formato attivo\" filtra e blocca le carte fuori formato."):("<span style='color:var(--bad)'>Pool legale del formato «"+esc(activeBanlist().name)+"»: non definito</span> — scarica il pool del formato attivo (o importane uno) per abilitare il blocco fuori-formato."))):"Nessun database: autocomplete limitato alla banlist.";
+  document.getElementById("poolMetaInfo").innerHTML=n>0&&poolMeta.updated?("Ultimo caricamento: "+new Date(poolMeta.updated).toLocaleString("it-IT")+" — "+poolMeta.source):"";
+}
+
+/* ------------------------- deck save/load ------------------------- */
+function refreshSavedDecks(){
+  const decks=lsGet("edison_decks",{});const sel=document.getElementById("savedDecks");
+  sel.innerHTML='<option value="">— mazzi salvati —</option>'+Object.keys(decks).sort().map(n=>'<option>'+esc(n)+'</option>').join("");
+}
+document.getElementById("saveDeck").addEventListener("click",()=>{const nm=document.getElementById("deckName").value.trim();if(!nm){toast("Dai un nome al mazzo.",true);return;}const decks=lsGet("edison_decks",{});decks[nm]=deck;lsSet("edison_decks",decks);refreshSavedDecks();toast("Salvato: "+nm);});
+document.getElementById("loadDeck").addEventListener("click",()=>{const nm=document.getElementById("savedDecks").value;if(!nm)return;const decks=lsGet("edison_decks",{});if(decks[nm]){deck=JSON.parse(JSON.stringify(decks[nm]));document.getElementById("deckName").value=nm;render();toast("Caricato: "+nm);}});
+document.getElementById("delDeck").addEventListener("click",()=>{const nm=document.getElementById("savedDecks").value;if(!nm)return;const decks=lsGet("edison_decks",{});delete decks[nm];lsSet("edison_decks",decks);refreshSavedDecks();toast("Eliminato: "+nm);});
+document.getElementById("clearDeck").addEventListener("click",()=>{if(confirm("Svuotare il mazzo corrente?")){deck={};render();}});
+
+/* ------------------------- text/parse ------------------------- */
+function deckToText(){
+  const out=[];
+  [["main","Main Deck"],["extra","Extra Deck"],["side","Side Deck"]].forEach(([z,lbl])=>{
+    const rows=Object.keys(deck).filter(k=>deck[k][z]>0).sort((a,b)=>(displayName(a)||deck[a].name).localeCompare(displayName(b)||deck[b].name));
+    if(rows.length){out.push(lbl);rows.forEach(k=>out.push(deck[k][z]+"x "+(displayName(k)||deck[k].name)));out.push("");}
+  });
+  return out.join("\n").trim();
+}
+function parseDeckText(txt){
+  const res={main:[],extra:[],side:[]};let cur="main";
+  (txt||"").split(/\r?\n/).forEach(l=>{const t=l.trim();if(!t)return;const low=t.toLowerCase();
+    if(/^#?\s*main/.test(low)){cur="main";return;} if(/^#?\s*extra/.test(low)){cur="extra";return;} if(/^[#!]?\s*side/.test(low)){cur="side";return;}
+    let m=t.match(/^(\d+)\s*[xX]?\s+(.+)$/);let qty=1,name=t;
+    if(m){qty=parseInt(m[1],10);name=m[2].trim();} else{m=t.match(/^(.+?)\s*[xX]\s*(\d+)$/);if(m){name=m[1].trim();qty=parseInt(m[2],10);}}
+    name=name.replace(/^[-*•]\s*/,"").trim(); if(name)res[cur].push({name,qty:Math.max(1,qty)});
+  });
+  return res;
+}
+function applyParsedDeck(parsed){
+  deck={};let blocked=0;
+  ["main","extra","side"].forEach(z=>parsed[z].forEach(({name,qty})=>{
+    const key=canonicalKey(name);const st=statusOf(key);const extra=isExtraCard(key);const cn=displayName(key)||name;
+    let allow=(st==="forbidden")?0:Math.min(qty,LIMIT[st]-totalCopies(key));
+    if(allow<qty)blocked+=(qty-Math.max(0,allow));
+    if(allow>0){const d=ensure(key,cn,extra);let zz=z;if(extra&&z==="main")zz="extra";if(!extra&&z==="extra")zz="main";d[zz]+=allow;d.extra_type=extra;}
+  }));
+  render();
+  toast(blocked>0?("Importato. "+blocked+" copie scartate per banlist/limiti."):"Lista importata.");
+}
+/* copy / paste-import (textarea) */
+document.getElementById("copyTxt").addEventListener("click",()=>{const io=document.getElementById("deckIO");io.classList.remove("hidden");io.value=deckToText();document.getElementById("importRow").classList.add("hidden");io.select();try{document.execCommand("copy");toast("Copiato.");}catch(e){toast("Testo nel box.");}});
+document.getElementById("pasteImport").addEventListener("click",()=>{const io=document.getElementById("deckIO");io.classList.remove("hidden");io.value="";io.placeholder="Incolla la lista (con intestazioni Main/Extra/Side) e premi Applica…";document.getElementById("importRow").classList.remove("hidden");io.focus();});
+document.getElementById("cancelImport").addEventListener("click",()=>{document.getElementById("deckIO").classList.add("hidden");document.getElementById("importRow").classList.add("hidden");});
+document.getElementById("applyImport").addEventListener("click",()=>{applyParsedDeck(parseDeckText(document.getElementById("deckIO").value));document.getElementById("deckIO").classList.add("hidden");document.getElementById("importRow").classList.add("hidden");});
+
+/* ------------------------- file download / upload ------------------------- */
+function download(filename,text){
+  try{ const blob=new Blob([text],{type:"text/plain;charset=utf-8"}); const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){ const io=document.getElementById("deckIO");io.classList.remove("hidden");io.value=text;toast("Download non disponibile qui: testo nel box, copialo.",true); }
+}
+function safeName(){return (document.getElementById("deckName").value.trim()||"edison-deck").replace(/[^\w\-]+/g,"_");}
+document.getElementById("expTxtFile").addEventListener("click",()=>{const t=deckToText();if(!t){toast("Mazzo vuoto.",true);return;}download(safeName()+".txt",t);});
+document.getElementById("expYdkFile").addEventListener("click",()=>{
+  if(poolCount()===0){toast("Per il .ydk serve il database (ID carte). Scaricalo nel tab Database.",true);return;}
+  const miss=[]; const sec=(zone)=>{const lines=[];Object.keys(deck).filter(k=>deck[k][zone]>0).forEach(k=>{const id=idOf(k);if(!id){miss.push(deck[k].name);}else{for(let i=0;i<deck[k][zone];i++)lines.push(id);}});return lines;};
+  const main=sec("main"),extra=sec("extra"),side=sec("side");
+  if(main.length+extra.length+side.length===0){toast("Mazzo vuoto.",true);return;}
+  const ydk="#created by Edison Deck Builder\n#main\n"+main.join("\n")+"\n#extra\n"+extra.join("\n")+"\n!side\n"+side.join("\n")+"\n";
+  download(safeName()+".ydk",ydk);
+  if(miss.length)toast("Attenzione: "+miss.length+" carte senza ID non incluse ("+miss.slice(0,3).join(", ")+"…).",true);
+});
+document.getElementById("importFileBtn").addEventListener("click",()=>document.getElementById("deckFile").click());
+document.getElementById("deckFile").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{ const txt=rd.result;
+    if(f.name.toLowerCase().endsWith(".ydk")||/^#(main|created)/im.test(txt)){
+      if(poolCount()===0){toast("Per importare un .ydk serve il database (per tradurre gli ID). Scaricalo prima.",true);return;}
+      const id2key={}; for(const k in pool)if(pool[k].id)id2key[pool[k].id]=k;
+      const parsed={main:[],extra:[],side:[]};let cur="main";
+      txt.split(/\r?\n/).forEach(l=>{const t=l.trim();if(!t||t.startsWith("#created"))return;const low=t.toLowerCase();
+        if(low==="#main"){cur="main";return;}if(low==="#extra"){cur="extra";return;}if(low==="!side"||low==="#side"){cur="side";return;}if(t.startsWith("#")||t.startsWith("!"))return;
+        const key=id2key[t.replace(/^0+/,"")]||id2key[t]; if(key)parsed[cur].push({name:pool[key].name,qty:1}); });
+      // collapse duplicates
+      ["main","extra","side"].forEach(z=>{const m={};parsed[z].forEach(x=>m[x.name]=(m[x.name]||0)+1);parsed[z]=Object.keys(m).map(n=>({name:n,qty:m[n]}));});
+      applyParsedDeck(parsed);
+    } else applyParsedDeck(parseDeckText(txt));
+  };
+  rd.readAsText(f); e.target.value="";
+});
+
+/* ------------------------- print ------------------------- */
+document.getElementById("printBtn").addEventListener("click",()=>{
+  const cM=sectionCount("main"),cE=sectionCount("extra"),cS=sectionCount("side");
+  const listHtml=(zone,lbl,cnt)=>{
+    const rows=Object.keys(deck).filter(k=>deck[k][zone]>0).sort((a,b)=>(displayName(a)||deck[a].name).localeCompare(displayName(b)||deck[b].name));
+    const items=rows.map(k=>'<li>'+deck[k][zone]+'× '+esc(displayName(k)||deck[k].name)+'</li>').join("")||'<li style="list-style:none;color:#666">—</li>';
+    return '<h3><span>'+lbl+'</span><span>'+cnt+'</span></h3><ol>'+items+'</ol>';
+  };
+  document.getElementById("printSheet").innerHTML=
+    '<h2>Decklist — Formato Edison</h2>'
+    +'<div class="small" style="color:#444">Banlist: '+esc(activeBanlist().name)+' · generato il '+new Date().toLocaleDateString("it-IT")+'</div>'
+    +'<div class="pfields"><div>Giocatore: &nbsp;</div><div>ID / Tavolo: &nbsp;</div><div>Firma: &nbsp;</div></div>'
+    +'<div class="pcols"><div>'+listHtml("main","MAIN DECK",cM)+'</div><div>'+listHtml("extra","EXTRA DECK",cE)+listHtml("side","SIDE DECK",cS)+'</div></div>'
+    +'<div class="ptot">Totali — Main: '+cM+' (40–60) · Extra: '+cE+' (≤15) · Side: '+cS+' (≤15)</div>'
+    +'<div class="small" style="color:#666;margin-top:8px">Foglio generato da Edison Deck Builder (impaginazione non ufficiale). Per i tornei usa il modulo richiesto dall\'organizzatore.</div>';
+  window.print();
+});
+
+/* ------------------------- compare ------------------------- */
+document.getElementById("loadCurrentIntoB").addEventListener("click",()=>{document.getElementById("cmpB").value=deckToText();toast("Mazzo corrente in B.");});
+document.getElementById("runCompare").addEventListener("click",()=>{
+  const A=parseDeckText(document.getElementById("cmpA").value), B=parseDeckText(document.getElementById("cmpB").value);
+  let html="";
+  [["main","Main Deck"],["extra","Extra Deck"],["side","Side Deck"]].forEach(([z,lbl])=>{
+    const ma=new Map(),mb=new Map();
+    A[z].forEach(x=>{const kk=canonicalKey(x.name);ma.set(kk,{name:displayName(kk)||x.name,qty:(ma.get(kk)?.qty||0)+x.qty});});
+    B[z].forEach(x=>{const kk=canonicalKey(x.name);mb.set(kk,{name:displayName(kk)||x.name,qty:(mb.get(kk)?.qty||0)+x.qty});});
+    const keys=new Set([...ma.keys(),...mb.keys()]); const rows=[];
+    [...keys].sort((a,b)=>(ma.get(a)?.name||mb.get(a)?.name).localeCompare(ma.get(b)?.name||mb.get(b)?.name)).forEach(k=>{
+      const a=ma.get(k)?.qty||0,b=mb.get(k)?.qty||0; if(a===b)return; const name=esc(ma.get(k)?.name||mb.get(k)?.name);
+      let cls,note; if(a>0&&b===0){cls="diff-add";note="solo in A";}else if(b>0&&a===0){cls="diff-rem";note="solo in B";}else{cls="diff-chg";note="quantità diversa";}
+      rows.push('<tr class="'+cls+'"><td>'+name+'</td><td>'+a+'</td><td>'+b+'</td><td>'+note+'</td></tr>');
+    });
+    html+= rows.length ? ('<h3 style="margin:12px 0 4px">'+lbl+'</h3><table class="cmp"><thead><tr><th>Carta</th><th>A</th><th>B</th><th>Differenza</th></tr></thead><tbody>'+rows.join("")+'</tbody></table>')
+      : ('<h3 style="margin:12px 0 4px">'+lbl+'</h3><p class="small ok-ico">✓ Identiche in questa sezione.</p>');
+  });
+  document.getElementById("cmpResult").innerHTML=html;
+});
+
+/* ------------------------- init ------------------------- */
+document.getElementById("showImages").checked=showImages;
+document.getElementById("langSel").value=lang;
+document.getElementById("viewSel").value=viewMode;
+buildIndex();refreshSavedDecks();updatePoolInfo();render();
+
+/* ------------------------- PWA: registrazione service worker ------------------------- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('Registrazione service worker non riuscita:', err));
+  });
+}
+</script>
+</body>
+</html>
