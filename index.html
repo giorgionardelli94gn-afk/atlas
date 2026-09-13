@@ -78,6 +78,23 @@
   .ac-item .nm{flex:1}
   .ac-item .zone{font-size:11px;color:var(--muted)}
   .ac-item img,.card-row img.thumb{width:30px;height:auto;border-radius:3px;flex:0 0 auto;background:var(--chip)}
+  /* ---------- Tavolo: LP counter ---------- */
+  .lp-panel{display:flex;flex-direction:column;gap:var(--sp-2)}
+  .lp-side{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-4);border-radius:var(--r-lg);background:var(--chip)}
+  .lp-side.lp-top{transform:rotate(180deg)}
+  .lp-name{font-size:var(--fs-md);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .lp-value{font-size:clamp(48px,14vw,96px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink)}
+  .lp-chips{display:flex;gap:var(--sp-1);flex-wrap:wrap;justify-content:center}
+  .chip{padding:var(--sp-1) var(--sp-3);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:var(--r-pill);cursor:pointer;font-size:var(--fs-sm);font-weight:600}
+  .lp-custom-row{display:flex;gap:var(--sp-2);align-items:center}
+  .lp-apply{width:52px;height:52px;flex:0 0 auto;border-radius:var(--r-md);border:1px solid var(--line);background:var(--panel);font-size:28px;font-weight:700;cursor:pointer;color:var(--ink)}
+  .lp-apply.minus:active{background:var(--bad);color:#fff;border-color:var(--bad)}
+  .lp-apply.plus:active{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .lp-custom-input{width:100px;text-align:center;font-size:var(--fs-lg);padding:var(--sp-2)}
+  .lp-mid{display:flex;gap:var(--sp-2);justify-content:center;align-items:center;flex-wrap:wrap;padding:var(--sp-1) 0}
+  .lp-mid-btn{padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-size:var(--fs-sm)}
+  .lp-mid-btn:disabled{opacity:.45;cursor:default}
+  .lp-mid-btn input{width:64px;margin-left:var(--sp-1);font-size:var(--fs-sm);padding:2px 6px}
   /* grid view */
   .deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
   .tile{position:relative;border:2px solid var(--line);border-radius:8px;overflow:hidden;background:var(--chip);min-height:118px;display:flex;flex-direction:column}
@@ -156,7 +173,8 @@
     <div class="sub">Formato Edison · Banlist Marzo 2010 (TCG)</div>
   </div>
   <div class="tabs">
-    <button class="tab active" data-tab="build">Costruisci mazzo</button>
+    <button class="tab active" data-tab="tavolo">Tavolo</button>
+    <button class="tab" data-tab="build">Costruisci mazzo</button>
     <button class="tab" data-tab="config">Banlist / Config</button>
     <button class="tab" data-tab="db">Database carte</button>
     <button class="tab" data-tab="compare">Confronta liste</button>
@@ -164,8 +182,57 @@
 </header>
 
 <main>
+  <!-- ============ TAVOLO (LP counter, 2 giocatori) ============ -->
+  <section id="tab-tavolo">
+    <div class="panel lp-panel">
+      <div class="lp-side lp-top">
+        <div class="lp-name" id="lpName1">Giocatore 2</div>
+        <div class="lp-value" id="lpValue1">8000</div>
+        <div class="lp-chips">
+          <button class="chip" data-side="1" data-amt="100">100</button>
+          <button class="chip" data-side="1" data-amt="500">500</button>
+          <button class="chip" data-side="1" data-amt="1000">1000</button>
+          <button class="chip" data-side="1" data-amt="2000">2000</button>
+        </div>
+        <div class="lp-custom-row">
+          <button class="lp-apply minus" data-side="1">−</button>
+          <input class="lp-custom-input" id="lpCustom1" type="number" min="0" inputmode="numeric" placeholder="LP">
+          <button class="lp-apply plus" data-side="1">+</button>
+        </div>
+      </div>
+
+      <div class="lp-mid">
+        <button class="lp-mid-btn" id="lpUndo" disabled>↺ Annulla ultima</button>
+        <button class="lp-mid-btn" id="lpLogToggle">Storico</button>
+        <button class="lp-mid-btn" id="lpReset">Nuova partita</button>
+        <label class="lp-mid-btn" style="cursor:default">LP iniziali <input id="lpStartInput" type="number" min="1" value="8000"></label>
+      </div>
+
+      <div class="lp-side lp-bottom">
+        <div class="lp-name" id="lpName0">Giocatore 1</div>
+        <div class="lp-value" id="lpValue0">8000</div>
+        <div class="lp-chips">
+          <button class="chip" data-side="0" data-amt="100">100</button>
+          <button class="chip" data-side="0" data-amt="500">500</button>
+          <button class="chip" data-side="0" data-amt="1000">1000</button>
+          <button class="chip" data-side="0" data-amt="2000">2000</button>
+        </div>
+        <div class="lp-custom-row">
+          <button class="lp-apply minus" data-side="0">−</button>
+          <input class="lp-custom-input" id="lpCustom0" type="number" min="0" inputmode="numeric" placeholder="LP">
+          <button class="lp-apply plus" data-side="0">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="lpLogPanel">
+      <h2>Storico partita</h2>
+      <div class="bl-list" id="lpLogList"></div>
+    </div>
+  </section>
+
   <!-- ============ BUILD ============ -->
-  <section id="tab-build">
+  <section id="tab-build" class="hidden">
     <div class="panel">
       <h2>Aggiungi carta</h2>
       <div class="search-wrap">
@@ -583,9 +650,75 @@ document.querySelector(".deckcols").addEventListener("click",e=>{
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
   document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
-  ["build","config","db","compare"].forEach(t=>document.getElementById("tab-"+t).classList.toggle("hidden",t!==btn.dataset.tab));
+  ["tavolo","build","config","db","compare"].forEach(t=>document.getElementById("tab-"+t).classList.toggle("hidden",t!==btn.dataset.tab));
   if(btn.dataset.tab==="config")renderBanlistConfig();
 }));
+
+/* ------------------------- Tavolo: LP counter (2 giocatori) ------------------------- */
+/* Stato tenuto come array di giocatori (non lp1/lp2 fissi) cosi' passare a 4/6 in futuro
+   (0.3 nel piano prevede "multi 2/4/6") e' un'estensione del render, non una riscrittura. */
+let lpState = lsGet("edison_lp", null);
+if(!lpState || !Array.isArray(lpState.players) || lpState.players.length!==2){
+  lpState = { players:[{name:"Giocatore 1",lp:8000},{name:"Giocatore 2",lp:8000}], startingLP:8000, history:[] };
+}
+function saveLp(){ lsSet("edison_lp", lpState); }
+function lpApply(side, delta){
+  if(!delta) return;
+  const p = lpState.players[side]; const prev = p.lp;
+  p.lp = Math.max(0, prev + delta);
+  lpState.history.push({side, delta: p.lp-prev, prev, t: Date.now()});
+  saveLp(); renderLp();
+}
+function lpUndo(){
+  const last = lpState.history.pop();
+  if(!last) return;
+  lpState.players[last.side].lp = last.prev;
+  saveLp(); renderLp();
+}
+function lpResetMatch(){
+  if(!confirm("Nuova partita: azzerare LP e storico?"))return;
+  const start = lpState.startingLP;
+  lpState.players.forEach(p=>p.lp=start);
+  lpState.history=[];
+  saveLp(); renderLp();
+}
+function renderLp(){
+  lpState.players.forEach((p,i)=>{
+    document.getElementById("lpName"+i).textContent = p.name;
+    document.getElementById("lpValue"+i).textContent = p.lp;
+  });
+  document.getElementById("lpUndo").disabled = lpState.history.length===0;
+  const logHost = document.getElementById("lpLogList");
+  if(lpState.history.length===0){ logHost.innerHTML='<div class="empty">— nessuna mossa —</div>'; }
+  else{
+    logHost.innerHTML=[...lpState.history].reverse().map(h=>{
+      const nm=esc(lpState.players[h.side].name), sign=h.delta>=0?"+":"", cls=h.delta>=0?"diff-add":"diff-rem";
+      return '<div class="bl-item"><span class="'+cls+'" style="flex:1">'+nm+': '+h.prev+' → '+(h.prev+h.delta)+' ('+sign+h.delta+')</span></div>';
+    }).join("");
+  }
+}
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
+  document.getElementById("lpCustom"+c.dataset.side).value = c.dataset.amt;
+}));
+document.querySelectorAll(".lp-apply").forEach(b=>b.addEventListener("click",()=>{
+  const side=+b.dataset.side, input=document.getElementById("lpCustom"+side), v=parseInt(input.value,10);
+  if(!v||v<=0)return;
+  lpApply(side, b.classList.contains("minus")?-v:v);
+  input.value="";
+}));
+document.getElementById("lpUndo").addEventListener("click", lpUndo);
+document.getElementById("lpReset").addEventListener("click", lpResetMatch);
+document.getElementById("lpLogToggle").addEventListener("click", ()=>{
+  document.getElementById("lpLogPanel").classList.toggle("hidden");
+});
+document.getElementById("lpStartInput").addEventListener("change", e=>{
+  const v=Math.max(1, parseInt(e.target.value,10)||8000);
+  lpState.startingLP=v;
+  if(lpState.history.length===0) lpState.players.forEach(p=>p.lp=v);
+  saveLp(); renderLp();
+});
+document.getElementById("lpStartInput").value = lpState.startingLP;
+renderLp();
 
 /* ------------------------- banlist config UI ------------------------- */
 function refreshBanlistSelect(){
