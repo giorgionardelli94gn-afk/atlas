@@ -11,18 +11,37 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Edison Deck Builder</title>
 <style>
+  /*
+   * Design tokens (task 0.2 — audit design system).
+   * --forbidden/--limited/--semi sono i colori semantici del banlist status (usati per dot/tag/tile).
+   * --bad/--warn sono i colori semantici generici (validazione, toast, tabella confronto): sono
+   * intenzionalmente agganciati a forbidden/limited cosi' "errore" e "vietata" restano sempre
+   * lo stesso rosso senza doverlo scrivere due volte — prima erano due valori esadecimali duplicati,
+   * ora c'e' una sola fonte di verita'. --ok e --semi non hanno equivalente generico/banlist:
+   * restano indipendenti perche' segnalano cose diverse (ok = via libera, semi = stato intermedio).
+   *
+   * --sp-, --r- e --fs- documentano la scala de-facto gia' in uso nel file (spaziature, raggi,
+   * dimensioni testo). Non e' stato fatto un refactor di massa delle regole esistenti per non
+   * rischiare regressioni visive su una UI gia' testata: da qui in avanti, il codice nuovo usa
+   * questi token invece di scrivere pixel a mano.
+   */
   :root{
     --bg:#f4f5f7; --panel:#ffffff; --ink:#1c2029; --muted:#6b7280; --line:#e2e5eb;
-    --accent:#3557b7; --accent-ink:#fff; --ok:#1a7f52; --warn:#b7791f; --bad:#c0392b;
+    --accent:#3557b7; --accent-ink:#fff;
+    --forbidden:#c0392b; --limited:#b7791f; --semi:#2f6fb0; --ok:#1a7f52;
+    --bad:var(--forbidden); --warn:var(--limited);
     --chip:#eef1f7; --shadow:0 1px 3px rgba(0,0,0,.08);
-    --forbidden:#c0392b; --limited:#b7791f; --semi:#2f6fb0;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+    --r-sm:6px; --r-md:8px; --r-lg:12px; --r-pill:20px;
+    --fs-2xs:10px; --fs-xs:11px; --fs-sm:12px; --fs-base:13px; --fs-md:14px; --fs-lg:16px;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --bg:#14161b; --panel:#1e2128; --ink:#e7e9ee; --muted:#9aa1ad; --line:#2c313b;
-      --accent:#5b82e0; --accent-ink:#0b0d11; --ok:#3fbf82; --warn:#e0a94b; --bad:#e5675a;
+      --accent:#5b82e0; --accent-ink:#0b0d11;
+      --forbidden:#e5675a; --limited:#e0a94b; --semi:#6fa8e0; --ok:#3fbf82;
+      --bad:var(--forbidden); --warn:var(--limited);
       --chip:#262b34; --shadow:0 1px 3px rgba(0,0,0,.4);
-      --forbidden:#e5675a; --limited:#e0a94b; --semi:#6fa8e0;
     }
   }
   *{box-sizing:border-box}
@@ -467,7 +486,7 @@ function render(){
         +'<span class="qty">'+d[zone]+'</span>'
         +'<span class="stepper"><button data-inc="'+k+'|'+zone+'">+</button></span>'
         +'<span class="name" title="'+esc(nm)+'">'+esc(nm)+'</span>'
-        +(st!=="free"?'<span class="tag '+st+'">'+(st==="semi"?"semi":st==="limited"?"lim":"ban")+'</span>':'')
+        +(st!=="free"?'<span class="tag '+st+'">'+(st==="semi"?"semi":st==="limited"?"lim":"viet")+'</span>':'')
         +movers.join("")+'</div>';
     }).join("");
   });
@@ -528,7 +547,7 @@ function updateAC(){
   acItems=res.slice(0,40); acActive=-1;
   if(acItems.length===0){acEl.className="ac";acEl.innerHTML="";return;}
   acEl.innerHTML=acItems.map((it,i)=>{
-    const tag=it.st!=="free"?'<span class="tag '+it.st+'">'+(it.st==="semi"?"semi":it.st==="limited"?"lim":"ban")+'</span>':'';
+    const tag=it.st!=="free"?'<span class="tag '+it.st+'">'+(it.st==="semi"?"semi":it.st==="limited"?"lim":"viet")+'</span>':'';
     const img=(showImages&&imgUrl(it.key))?('<img loading="lazy" src="'+imgUrl(it.key)+'" onerror="this.style.display=\'none\'">'):'';
     return '<div class="ac-item" data-i="'+i+'">'+img+'<span class="dot '+it.st+'"></span><span class="nm">'+esc(it.name)+'</span>'+tag+'<span class="zone">'+(it.extra?"Extra":"Main")+'</span></div>';
   }).join("");
