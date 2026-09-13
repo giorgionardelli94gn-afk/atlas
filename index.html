@@ -99,6 +99,16 @@
   .lp-quick-result{min-height:1.6em;font-size:clamp(22px,6vw,34px);font-weight:700;margin-top:var(--sp-2);color:var(--ink)}
   .lp-quick-result.pop{animation:lpPop .4s cubic-bezier(.34,1.56,.64,1)}
   @keyframes lpPop{0%{transform:scale(.5) rotate(-8deg);opacity:0}70%{transform:scale(1.1) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+  .timer-panel{text-align:center}
+  .timer-display{font-size:clamp(40px,12vw,72px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink)}
+  .timer-display.warn{color:var(--warn)}
+  .timer-display.expired{color:var(--bad);animation:timerPulse 1s ease-in-out infinite}
+  @keyframes timerPulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .timer-status{font-size:var(--fs-sm);color:var(--muted);min-height:1.2em;margin-top:var(--sp-1)}
+  .timer-presets{display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap;align-items:center;margin-top:var(--sp-3)}
+  .timer-custom-row{display:flex;gap:var(--sp-1);align-items:center}
+  .timer-custom-row input{width:56px;text-align:center;padding:var(--sp-1)}
+  .timer-controls{display:flex;gap:var(--sp-2);justify-content:center;margin-top:var(--sp-3)}
   /* grid view */
   .deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
   .tile{position:relative;border:2px solid var(--line);border-radius:8px;overflow:hidden;background:var(--chip);min-height:118px;display:flex;flex-direction:column}
@@ -196,6 +206,27 @@
       </div>
       <div class="lp-quick-result" id="quickResult">&nbsp;</div>
     </div>
+
+    <div class="panel timer-panel">
+      <div class="timer-display" id="timerDisplay">40:00</div>
+      <div class="timer-status" id="timerStatus">&nbsp;</div>
+      <div class="timer-presets">
+        <button class="chip" data-preset="2400">40 min</button>
+        <button class="chip" data-preset="600">10 min</button>
+        <div class="timer-custom-row">
+          <input id="timerCustomMin" type="number" min="0" inputmode="numeric" placeholder="mm">
+          <span>:</span>
+          <input id="timerCustomSec" type="number" min="0" max="59" inputmode="numeric" placeholder="ss">
+          <button class="lp-mid-btn" id="timerSetCustom">Imposta</button>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn primary" id="timerStart">▶ Avvia</button>
+        <button class="btn" id="timerPause" disabled>⏸ Pausa</button>
+        <button class="btn" id="timerReset">↺ Reset</button>
+      </div>
+    </div>
+
     <div class="panel lp-panel">
       <div class="lp-side lp-top">
         <div class="lp-name" id="lpName1">Giocatore 2</div>
@@ -746,6 +777,88 @@ document.getElementById("btnFirst").addEventListener("click",()=>{
   const i=Math.random()<0.5?0:1;
   lpQuickResult("👉 inizia <b>"+esc(lpState.players[i].name)+"</b>");
 });
+
+/* ------------------------- Tavolo: timer da torneo ------------------------- */
+/* endAt e' un epoch assoluto (non un contatore locale): il timer resta corretto
+   anche se la scheda viene chiusa/riaperta a metà round, non solo mentre resta aperta. */
+let timerState = lsGet("edison_timer", { duration:2400, remaining:2400, running:false, endAt:null });
+let timerInterval = null;
+let timerAudioCtx = null;
+function saveTimer(){ lsSet("edison_timer", timerState); }
+function fmtTime(s){
+  s = Math.max(0, Math.round(s));
+  return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+}
+function timerBeep(){
+  try{
+    if(!timerAudioCtx) timerAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o=timerAudioCtx.createOscillator(), g=timerAudioCtx.createGain();
+    o.type="sine"; o.frequency.value=880; o.connect(g); g.connect(timerAudioCtx.destination);
+    g.gain.setValueAtTime(0.2, timerAudioCtx.currentTime);
+    o.start(); o.stop(timerAudioCtx.currentTime+0.6);
+  }catch(e){}
+}
+function renderTimer(){
+  const el=document.getElementById("timerDisplay");
+  el.textContent=fmtTime(timerState.remaining);
+  el.classList.toggle("warn", timerState.remaining>0 && timerState.remaining<=300);
+  el.classList.toggle("expired", timerState.remaining<=0);
+  document.getElementById("timerStart").disabled=timerState.running;
+  document.getElementById("timerPause").disabled=!timerState.running;
+  const st=document.getElementById("timerStatus");
+  st.textContent = timerState.remaining<=0 ? "⏰ Tempo scaduto"
+    : (timerState.running && timerState.remaining<=300) ? "⏳ Ultimi 5 minuti"
+    : " ";
+}
+function timerTick(){
+  if(!timerState.running)return;
+  const remaining=Math.max(0, Math.round((timerState.endAt-Date.now())/1000));
+  const wasAboveZero = timerState.remaining>0;
+  timerState.remaining=remaining;
+  renderTimer();
+  if(remaining<=0){
+    timerState.running=false; clearInterval(timerInterval); timerInterval=null;
+    if(wasAboveZero) timerBeep();
+    saveTimer(); renderTimer();
+  }
+}
+document.getElementById("timerStart").addEventListener("click",()=>{
+  if(!timerAudioCtx){ try{ timerAudioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(timerState.remaining<=0) timerState.remaining=timerState.duration;
+  timerState.endAt=Date.now()+timerState.remaining*1000;
+  timerState.running=true; saveTimer();
+  clearInterval(timerInterval); timerInterval=setInterval(timerTick,250);
+  renderTimer();
+});
+document.getElementById("timerPause").addEventListener("click",()=>{
+  timerState.running=false; clearInterval(timerInterval); timerInterval=null;
+  saveTimer(); renderTimer();
+});
+document.getElementById("timerReset").addEventListener("click",()=>{
+  timerState.running=false; clearInterval(timerInterval); timerInterval=null;
+  timerState.remaining=timerState.duration;
+  saveTimer(); renderTimer();
+});
+document.querySelectorAll(".timer-presets .chip").forEach(c=>c.addEventListener("click",()=>{
+  const d=+c.dataset.preset;
+  timerState.running=false; clearInterval(timerInterval); timerInterval=null;
+  timerState.duration=d; timerState.remaining=d;
+  saveTimer(); renderTimer();
+}));
+document.getElementById("timerSetCustom").addEventListener("click",()=>{
+  const m=parseInt(document.getElementById("timerCustomMin").value,10)||0;
+  const s=parseInt(document.getElementById("timerCustomSec").value,10)||0;
+  const d=m*60+s; if(d<=0)return;
+  timerState.running=false; clearInterval(timerInterval); timerInterval=null;
+  timerState.duration=d; timerState.remaining=d;
+  saveTimer(); renderTimer();
+});
+if(timerState.running && timerState.endAt){
+  timerState.remaining=Math.max(0, Math.round((timerState.endAt-Date.now())/1000));
+  if(timerState.remaining>0) timerInterval=setInterval(timerTick,250);
+  else timerState.running=false;
+}
+renderTimer();
 
 /* ------------------------- banlist config UI ------------------------- */
 function refreshBanlistSelect(){
