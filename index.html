@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#3557b7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Atlas Deck">
+<meta name="apple-mobile-web-app-title" content="Atlas">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Edison Deck Builder</title>
+<title>Atlas — Deck Lab YGO</title>
 <style>
   /*
    * Design tokens (task 0.2 — audit design system).
@@ -78,7 +78,14 @@
   .ac-item .nm{flex:1}
   .ac-item .zone{font-size:11px;color:var(--muted)}
   .ac-item img,.card-row img.thumb{width:30px;height:auto;border-radius:3px;flex:0 0 auto;background:var(--chip)}
-  /* ---------- Tavolo: LP counter ---------- */
+  /* ---------- Tavolo: dock (timer pill + dado + modalita' tavolo) ---------- */
+  .tavolo-dock{display:flex;justify-content:flex-end;gap:var(--sp-2);align-items:center;margin-bottom:var(--sp-3)}
+  .dock-pill{padding:var(--sp-1) var(--sp-3);border-radius:var(--r-pill);border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer;font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums}
+  .dock-pill.warn{color:var(--warn);border-color:var(--warn)}
+  .dock-pill.expired{color:var(--bad);border-color:var(--bad)}
+  .dock-icon{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;padding:0;flex:0 0 auto}
+  body.table-focus .tavolo-dock{display:none}
+  /* ---------- Tavolo: LP counter (schermata home) ---------- */
   .lp-panel{display:flex;flex-direction:column;gap:var(--sp-2)}
   .lp-side{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-4);border-radius:var(--r-lg);background:var(--chip)}
   .lp-side.lp-top{transform:rotate(180deg)}
@@ -91,24 +98,55 @@
   .lp-apply.minus:active{background:var(--bad);color:#fff;border-color:var(--bad)}
   .lp-apply.plus:active{background:var(--ok);color:#fff;border-color:var(--ok)}
   .lp-custom-input{width:100px;text-align:center;font-size:var(--fs-lg);padding:var(--sp-2)}
-  .lp-mid{display:flex;gap:var(--sp-2);justify-content:center;align-items:center;flex-wrap:wrap;padding:var(--sp-1) 0}
+  /* controlli secondari: richiusi di default, un tocco per aprirli (non competono con i LP) */
+  .lp-mid{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-1) 0}
+  .lp-mid-toggle{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-2)}
+  .lp-mid-controls{display:flex;gap:var(--sp-2);justify-content:center;align-items:center;flex-wrap:wrap}
   .lp-mid-btn{padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-size:var(--fs-sm)}
   .lp-mid-btn:disabled{opacity:.45;cursor:default}
   .lp-mid-btn input{width:64px;margin-left:var(--sp-1);font-size:var(--fs-sm);padding:2px 6px}
-  .lp-quickpanel{text-align:center}
+  /* orizzontale: due pannelli affiancati invece che impilati (telefono tra due giocatori seduti ai lati lunghi) */
+  @media (orientation:landscape){
+    .lp-panel{flex-direction:row;align-items:stretch}
+    .lp-side{flex:1;justify-content:center}
+    .lp-value{font-size:clamp(32px,20vh,80px)}
+    .lp-mid{flex:0 0 auto;justify-content:center;max-width:150px}
+  }
   .lp-quick-result{min-height:1.6em;font-size:clamp(22px,6vw,34px);font-weight:700;margin-top:var(--sp-2);color:var(--ink)}
   .lp-quick-result.pop{animation:lpPop .4s cubic-bezier(.34,1.56,.64,1)}
   @keyframes lpPop{0%{transform:scale(.5) rotate(-8deg);opacity:0}70%{transform:scale(1.1) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
-  .timer-panel{text-align:center}
-  .timer-display{font-size:clamp(40px,12vw,72px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink)}
+  /* ---------- Tavolo: dado / moneta / chi inizia (animazioni) ---------- */
+  .dice-stage{display:flex;justify-content:center;align-items:center;gap:var(--sp-5);min-height:110px;perspective:600px}
+  .coin{width:88px;height:88px;position:relative;transform-style:preserve-3d;transition:transform 1s cubic-bezier(.2,.8,.15,1)}
+  .coin-face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;backface-visibility:hidden;box-shadow:0 2px 10px rgba(0,0,0,.28)}
+  .coin-face.front{background:linear-gradient(135deg,#f4d03f,#b8860b);color:#3a2a00}
+  .coin-face.back{background:linear-gradient(135deg,#d0d3d8,#8a8f98);color:#20242b;transform:rotateY(180deg)}
+  .die{font-size:64px;line-height:1;display:inline-block}
+  .die.roll{animation:dieRoll .7s ease-out}
+  @keyframes dieRoll{0%{transform:rotate(0) scale(1)}45%{transform:rotate(200deg) scale(1.2)}100%{transform:rotate(360deg) scale(1)}}
+  .dice-hidden{visibility:hidden}
+  /* ---------- Tavolo: timer da torneo ---------- */
+  .timer-display{font-size:clamp(40px,16vw,72px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink);text-align:center}
   .timer-display.warn{color:var(--warn)}
   .timer-display.expired{color:var(--bad);animation:timerPulse 1s ease-in-out infinite}
   @keyframes timerPulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .timer-status{font-size:var(--fs-sm);color:var(--muted);min-height:1.2em;margin-top:var(--sp-1)}
+  .timer-status{font-size:var(--fs-sm);color:var(--muted);min-height:1.2em;margin-top:var(--sp-1);text-align:center}
   .timer-presets{display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap;align-items:center;margin-top:var(--sp-3)}
   .timer-custom-row{display:flex;gap:var(--sp-1);align-items:center}
   .timer-custom-row input{width:56px;text-align:center;padding:var(--sp-1)}
   .timer-controls{display:flex;gap:var(--sp-2);justify-content:center;margin-top:var(--sp-3)}
+  /* ---------- Tavolo: sheet (timer / dado, a comparsa dal basso) ---------- */
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:35}
+  .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.3);z-index:36;padding:var(--sp-4);max-height:85vh;overflow:auto;transform:translateY(100%);transition:transform .25s ease}
+  .sheet.open{transform:translateY(0)}
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)}
+  .sheet-head h2{margin:0;font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .sheet-close{border:none;background:var(--chip);color:var(--ink);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px}
+  /* ---------- Tavolo: modalita' tavolo (focus, offline, una mano) ---------- */
+  body.table-focus header{display:none}
+  body.table-focus main{max-width:100%;padding:var(--sp-2)}
+  body.table-focus main > .panel{display:none}
+  .table-focus-exit{position:fixed;top:10px;right:10px;z-index:40;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-size:var(--fs-sm);box-shadow:var(--shadow)}
   /* grid view */
   .deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
   .tile{position:relative;border:2px solid var(--line);border-radius:8px;overflow:hidden;background:var(--chip);min-height:118px;display:flex;flex-direction:column}
@@ -145,6 +183,18 @@
   .val-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
   .val-line .ico{width:16px;text-align:center}
   .ok-ico{color:var(--ok)} .bad-ico{color:var(--bad)} .warn-ico{color:var(--warn)}
+  /* ---------- statistiche mazzo (0.7) ---------- */
+  .stat-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:2px 0}
+  .stat-row .stat-label{width:64px;flex:0 0 auto;color:var(--muted);text-align:right}
+  .stat-row .stat-bar-wrap{flex:1;background:var(--chip);border-radius:var(--r-sm);overflow:hidden;height:14px}
+  .stat-row .stat-bar{height:100%;background:var(--accent);border-radius:var(--r-sm)}
+  .stat-row .stat-bar.type-monster{background:#c0392b}
+  .stat-row .stat-bar.type-spell{background:#1a7f52}
+  .stat-row .stat-bar.type-trap{background:#8e44ad}
+  .stat-row .stat-n{width:22px;flex:0 0 auto;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat-group{margin-bottom:10px}
+  .stat-group:last-child{margin-bottom:0}
+  .stat-group h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
   .banlist-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
   @media(max-width:820px){.banlist-cols{grid-template-columns:1fr}}
   .bl-list{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px}
@@ -183,8 +233,8 @@
 <body>
 <header>
   <div>
-    <h1>Edison Deck Builder</h1>
-    <div class="sub">Formato Edison · Banlist Marzo 2010 (TCG)</div>
+    <h1>Atlas</h1>
+    <div class="sub" id="headerSub">Formato attivo: —</div>
   </div>
   <div class="tabs">
     <button class="tab" data-tab="tavolo">Tavolo</button>
@@ -198,35 +248,14 @@
 <main>
   <!-- ============ TAVOLO (LP counter, 2 giocatori) ============ -->
   <section id="tab-tavolo" class="hidden">
-    <div class="panel lp-quickpanel">
-      <div class="row" style="justify-content:center;gap:var(--sp-3)">
-        <button class="btn" id="btnCoin">🪙 Lancia moneta</button>
-        <button class="btn" id="btnDice">🎲 Lancia dado</button>
-        <button class="btn" id="btnFirst">👉 Chi inizia?</button>
-      </div>
-      <div class="lp-quick-result" id="quickResult">&nbsp;</div>
+    <div class="tavolo-dock">
+      <button class="dock-pill" id="timerPillBtn">⏱ <span id="timerPillText">40:00</span></button>
+      <button class="dock-icon" id="diceOpenBtn" title="Moneta · dado · chi inizia">🎲</button>
+      <button class="dock-icon" id="tableFocusToggle" title="Modalità tavolo">🖥</button>
     </div>
+    <button class="table-focus-exit hidden" id="tableFocusExit">✕ Esci</button>
 
-    <div class="panel timer-panel">
-      <div class="timer-display" id="timerDisplay">40:00</div>
-      <div class="timer-status" id="timerStatus">&nbsp;</div>
-      <div class="timer-presets">
-        <button class="chip" data-preset="2400">40 min</button>
-        <button class="chip" data-preset="600">10 min</button>
-        <div class="timer-custom-row">
-          <input id="timerCustomMin" type="number" min="0" inputmode="numeric" placeholder="mm">
-          <span>:</span>
-          <input id="timerCustomSec" type="number" min="0" max="59" inputmode="numeric" placeholder="ss">
-          <button class="lp-mid-btn" id="timerSetCustom">Imposta</button>
-        </div>
-      </div>
-      <div class="timer-controls">
-        <button class="btn primary" id="timerStart">▶ Avvia</button>
-        <button class="btn" id="timerPause" disabled>⏸ Pausa</button>
-        <button class="btn" id="timerReset">↺ Reset</button>
-      </div>
-    </div>
-
+    <!-- ===== LP: schermata home di Tavolo ===== -->
     <div class="panel lp-panel">
       <div class="lp-side lp-top">
         <div class="lp-name" id="lpName1">Giocatore 2</div>
@@ -245,10 +274,13 @@
       </div>
 
       <div class="lp-mid">
-        <button class="lp-mid-btn" id="lpUndo" disabled>↺ Annulla ultima</button>
-        <button class="lp-mid-btn" id="lpLogToggle">Storico</button>
-        <button class="lp-mid-btn" id="lpReset">Nuova partita</button>
-        <label class="lp-mid-btn" style="cursor:default">LP iniziali <input id="lpStartInput" type="number" min="1" value="8000"></label>
+        <button class="lp-mid-toggle" id="lpMidToggle">⋯ Altro</button>
+        <div class="lp-mid-controls hidden" id="lpMidControls">
+          <button class="lp-mid-btn" id="lpUndo" disabled>↺ Annulla ultima</button>
+          <button class="lp-mid-btn" id="lpLogToggle">Storico</button>
+          <button class="lp-mid-btn" id="lpReset">Nuova partita</button>
+          <label class="lp-mid-btn" style="cursor:default">LP iniziali <input id="lpStartInput" type="number" min="1" value="8000"></label>
+        </div>
       </div>
 
       <div class="lp-side lp-bottom">
@@ -271,6 +303,45 @@
     <div class="panel hidden" id="lpLogPanel">
       <h2>Storico partita</h2>
       <div class="bl-list" id="lpLogList"></div>
+    </div>
+
+    <!-- ===== Timer: sheet a comparsa dal basso ===== -->
+    <div class="sheet-backdrop hidden" id="timerBackdrop"></div>
+    <div class="sheet hidden" id="timerSheet">
+      <div class="sheet-head"><h2>Timer round</h2><button class="sheet-close" id="timerSheetClose">✕</button></div>
+      <div class="timer-display" id="timerDisplay">40:00</div>
+      <div class="timer-status" id="timerStatus">&nbsp;</div>
+      <div class="timer-presets">
+        <button class="chip" data-preset="2400">40 min</button>
+        <button class="chip" data-preset="600">10 min</button>
+        <div class="timer-custom-row">
+          <input id="timerCustomMin" type="number" min="0" inputmode="numeric" placeholder="mm">
+          <span>:</span>
+          <input id="timerCustomSec" type="number" min="0" max="59" inputmode="numeric" placeholder="ss">
+          <button class="lp-mid-btn" id="timerSetCustom">Imposta</button>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn primary" id="timerStart">▶ Avvia</button>
+        <button class="btn" id="timerPause" disabled>⏸ Pausa</button>
+        <button class="btn" id="timerReset">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- ===== Dado / moneta / chi inizia: sheet a comparsa dal basso ===== -->
+    <div class="sheet-backdrop hidden" id="diceBackdrop"></div>
+    <div class="sheet hidden" id="diceSheet">
+      <div class="sheet-head"><h2>Moneta · Dado · Chi inizia</h2><button class="sheet-close" id="diceSheetClose">✕</button></div>
+      <div class="dice-stage">
+        <div class="coin dice-hidden" id="coinEl"><div class="coin-face front">T</div><div class="coin-face back">C</div></div>
+        <div class="die dice-hidden" id="dieEl">⚀</div>
+      </div>
+      <div class="row" style="justify-content:center;gap:var(--sp-3)">
+        <button class="btn" id="btnCoin">🪙 Lancia moneta</button>
+        <button class="btn" id="btnDice">🎲 Lancia dado</button>
+        <button class="btn" id="btnFirst">👉 Chi inizia?</button>
+      </div>
+      <div class="lp-quick-result" id="quickResult">&nbsp;</div>
     </div>
   </section>
 
@@ -320,6 +391,10 @@
         <div class="panel">
           <h2>Controllo legalità</h2>
           <div id="validation"></div>
+        </div>
+        <div class="panel">
+          <h2>Statistiche mazzo</h2>
+          <div id="deckStats"></div>
         </div>
         <div class="panel">
           <h2>Mazzo · salva</h2>
@@ -605,6 +680,9 @@ function render(){
   renderValidation(cM,cE,cS);
   document.getElementById("activeBanlistName").textContent=activeBanlist().name;
   document.getElementById("poolStatus").textContent= poolCount()>0 ? ("Pool: "+poolCount()+" carte"+(poolMeta.source?(" · "+poolMeta.source):"")) : "Pool carte: solo banlist";
+  const headerSub=document.getElementById("headerSub");
+  if(headerSub) headerSub.textContent="Formato attivo: "+activeBanlist().name;
+  renderStats();
 }
 function setBadge(id,n,ok){const el=document.getElementById(id);el.textContent=n;el.className="count-badge "+(ok?"ok":"bad");}
 function tileHtml(k,zone){
@@ -631,6 +709,58 @@ function renderValidation(cM,cE,cS){
   const legal=(cM>=40&&cM<=60)&&cE<=15&&cS<=15&&issues===0;
   v.unshift(legal?line("ok-ico","●","<b>Mazzo legale</b> — tutto quadra."):line("warn-ico","●","<b>Non ancora legale</b> — vedi sotto."));
   document.getElementById("validation").innerHTML=v.join("");
+}
+
+/* ------------------------- statistiche mazzo (0.7) ------------------------- */
+/* Richiede pool[key].frameType/level/attribute (task 0.7): carte scaricate prima di
+   questo campo non hanno i dati finche' non si rifa' un download/aggiorna in tab Database. */
+const ATTR_ORDER=["LIGHT","DARK","EARTH","WATER","FIRE","WIND","DIVINE"];
+function renderStats(){
+  const host=document.getElementById("deckStats");
+  const rows=Object.keys(deck).filter(k=>deck[k].main>0);
+  if(rows.length===0){ host.innerHTML='<div class="empty">— aggiungi carte al Main Deck —</div>'; return; }
+  let known=0, monster=0, spell=0, trap=0;
+  const levelCount={}, attrCount={};
+  rows.forEach(k=>{
+    const n=deck[k].main, p=pool[k];
+    if(!p || !p.frameType) return;
+    known+=n;
+    if(p.frameType==="spell"){ spell+=n; }
+    else if(p.frameType==="trap"){ trap+=n; }
+    else{
+      monster+=n;
+      if(p.level!=null){ const lv=Math.max(0,Math.min(12,p.level)); levelCount[lv]=(levelCount[lv]||0)+n; }
+      if(p.attribute){ attrCount[p.attribute]=(attrCount[p.attribute]||0)+n; }
+    }
+  });
+  const totalMain=rows.reduce((s,k)=>s+deck[k].main,0), missing=totalMain-known;
+  if(known===0){
+    host.innerHTML='<div class="empty">Nessun dato tipo/livello disponibile — scarica il database carte (tab «Database carte») per vedere le statistiche.</div>';
+    return;
+  }
+  const bar=(cls,label,n,max)=>'<div class="stat-row"><span class="stat-label">'+esc(label)+'</span><div class="stat-bar-wrap"><div class="stat-bar '+cls+'" style="width:'+(max?Math.round(n/max*100):0)+'%"></div></div><span class="stat-n">'+n+'</span></div>';
+  const typeMax=Math.max(monster,spell,trap,1);
+  let html='<div class="stat-group"><h4>Tipo (Main Deck)</h4>'
+    +bar("type-monster","Mostro",monster,typeMax)
+    +bar("type-spell","Magia",spell,typeMax)
+    +bar("type-trap","Trappola",trap,typeMax)
+    +'</div>';
+  if(monster>0){
+    const lvVals=Object.values(levelCount), lvMax=Math.max(1,...lvVals);
+    let lvHtml="";
+    for(let lv=1;lv<=12;lv++){ const n=levelCount[lv]; if(!n)continue; lvHtml+=bar("","Lv/Rk "+lv,n,lvMax); }
+    if(lvHtml) html+='<div class="stat-group"><h4>Livello / Rank / Link (mostri)</h4>'+lvHtml+'</div>';
+    const attrKeys=Object.keys(attrCount);
+    if(attrKeys.length){
+      const attrMax=Math.max(...attrKeys.map(a=>attrCount[a]));
+      let attrHtml="";
+      ATTR_ORDER.filter(a=>attrCount[a]).forEach(a=>{ attrHtml+=bar("",a,attrCount[a],attrMax); });
+      attrKeys.filter(a=>!ATTR_ORDER.includes(a)).forEach(a=>{ attrHtml+=bar("",a,attrCount[a],attrMax); });
+      html+='<div class="stat-group"><h4>Attributo (mostri)</h4>'+attrHtml+'</div>';
+    }
+  }
+  if(missing>0) html+='<div class="small muted" style="margin-top:6px">'+missing+' cop'+(missing===1?"ia":"ie")+' senza dati (carte non presenti nel database scaricato).</div>';
+  host.innerHTML=html;
 }
 
 /* ------------------------- autocomplete ------------------------- */
@@ -754,6 +884,9 @@ document.getElementById("lpReset").addEventListener("click", lpResetMatch);
 document.getElementById("lpLogToggle").addEventListener("click", ()=>{
   document.getElementById("lpLogPanel").classList.toggle("hidden");
 });
+document.getElementById("lpMidToggle").addEventListener("click", ()=>{
+  document.getElementById("lpMidControls").classList.toggle("hidden");
+});
 document.getElementById("lpStartInput").addEventListener("change", e=>{
   const v=Math.max(1, parseInt(e.target.value,10)||8000);
   lpState.startingLP=v;
@@ -763,19 +896,68 @@ document.getElementById("lpStartInput").addEventListener("change", e=>{
 document.getElementById("lpStartInput").value = lpState.startingLP;
 renderLp();
 
+/* ------------------------- Tavolo: sheet a comparsa (timer / dado) ------------------------- */
+function openSheet(sheetId, backdropId){
+  document.getElementById(backdropId).classList.remove("hidden");
+  document.getElementById(sheetId).classList.remove("hidden");
+  requestAnimationFrame(()=>document.getElementById(sheetId).classList.add("open"));
+}
+function closeSheet(sheetId, backdropId){
+  document.getElementById(sheetId).classList.remove("open");
+  document.getElementById(backdropId).classList.add("hidden");
+  setTimeout(()=>document.getElementById(sheetId).classList.add("hidden"), 220);
+}
+document.getElementById("timerPillBtn").addEventListener("click",()=>openSheet("timerSheet","timerBackdrop"));
+document.getElementById("timerSheetClose").addEventListener("click",()=>closeSheet("timerSheet","timerBackdrop"));
+document.getElementById("timerBackdrop").addEventListener("click",()=>closeSheet("timerSheet","timerBackdrop"));
+document.getElementById("diceOpenBtn").addEventListener("click",()=>openSheet("diceSheet","diceBackdrop"));
+document.getElementById("diceSheetClose").addEventListener("click",()=>closeSheet("diceSheet","diceBackdrop"));
+document.getElementById("diceBackdrop").addEventListener("click",()=>closeSheet("diceSheet","diceBackdrop"));
+
+/* ------------------------- Tavolo: dado / moneta / chi inizia (animati) ------------------------- */
 function lpQuickResult(html){
   const el=document.getElementById("quickResult");
   el.innerHTML=html; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
 }
+let coinSpins = 0; // accumulato: la moneta gira sempre "in avanti", mai all'indietro
 document.getElementById("btnCoin").addEventListener("click",()=>{
-  lpQuickResult("🪙 <b>"+(Math.random()<0.5?"Testa":"Croce")+"</b>");
+  const coin=document.getElementById("coinEl");
+  coin.classList.remove("dice-hidden");
+  const heads = Math.random()<0.5;
+  coinSpins += 4;
+  coin.style.transform = "rotateY("+(coinSpins*360 + (heads?0:180))+"deg)";
+  setTimeout(()=>lpQuickResult("🪙 <b>"+(heads?"Testa":"Croce")+"</b>"), 950);
 });
+const DICE_FACES=["⚀","⚁","⚂","⚃","⚄","⚅"];
 document.getElementById("btnDice").addEventListener("click",()=>{
-  lpQuickResult("🎲 <b>"+(1+Math.floor(Math.random()*6))+"</b>");
+  const die=document.getElementById("dieEl");
+  die.classList.remove("dice-hidden");
+  die.classList.remove("roll"); void die.offsetWidth; die.classList.add("roll");
+  let ticks=0;
+  const iv=setInterval(()=>{
+    die.textContent = DICE_FACES[Math.floor(Math.random()*6)];
+    ticks++;
+    if(ticks>=12){
+      clearInterval(iv);
+      const finalVal = 1+Math.floor(Math.random()*6);
+      die.textContent = DICE_FACES[finalVal-1];
+      lpQuickResult("🎲 <b>"+finalVal+"</b>");
+    }
+  }, 55);
 });
 document.getElementById("btnFirst").addEventListener("click",()=>{
-  const i=Math.random()<0.5?0:1;
-  lpQuickResult("👉 inizia <b>"+esc(lpState.players[i].name)+"</b>");
+  const resEl=document.getElementById("quickResult");
+  let ticks=0;
+  const iv=setInterval(()=>{
+    const nm=lpState.players[Math.floor(Math.random()*lpState.players.length)].name;
+    resEl.innerHTML="👉 "+esc(nm);
+    ticks++;
+    if(ticks>=10){
+      clearInterval(iv);
+      const i=Math.random()<0.5?0:1;
+      lpQuickResult("👉 inizia <b>"+esc(lpState.players[i].name)+"</b>");
+    }
+  }, 70);
 });
 
 /* ------------------------- Tavolo: timer da torneo ------------------------- */
@@ -799,16 +981,23 @@ function timerBeep(){
   }catch(e){}
 }
 function renderTimer(){
+  const txt=fmtTime(timerState.remaining);
+  const warn = timerState.remaining>0 && timerState.remaining<=300;
+  const expired = timerState.remaining<=0;
   const el=document.getElementById("timerDisplay");
-  el.textContent=fmtTime(timerState.remaining);
-  el.classList.toggle("warn", timerState.remaining>0 && timerState.remaining<=300);
-  el.classList.toggle("expired", timerState.remaining<=0);
+  el.textContent=txt;
+  el.classList.toggle("warn", warn);
+  el.classList.toggle("expired", expired);
   document.getElementById("timerStart").disabled=timerState.running;
   document.getElementById("timerPause").disabled=!timerState.running;
   const st=document.getElementById("timerStatus");
-  st.textContent = timerState.remaining<=0 ? "⏰ Tempo scaduto"
-    : (timerState.running && timerState.remaining<=300) ? "⏳ Ultimi 5 minuti"
-    : " ";
+  st.textContent = expired ? "⏰ Tempo scaduto"
+    : (timerState.running && warn) ? "⏳ Ultimi 5 minuti"
+    : " ";
+  const pill=document.getElementById("timerPillBtn"), pillTxt=document.getElementById("timerPillText");
+  pillTxt.textContent = txt;
+  pill.classList.toggle("warn", warn);
+  pill.classList.toggle("expired", expired);
 }
 function timerTick(){
   if(!timerState.running)return;
@@ -859,6 +1048,44 @@ if(timerState.running && timerState.endAt){
   else timerState.running=false;
 }
 renderTimer();
+
+/* ------------------------- Tavolo: modalita' tavolo (focus, offline, una mano) ------------------------- */
+let wakeLock = null;
+async function requestWakeLock(){
+  try{
+    if("wakeLock" in navigator){ wakeLock = await navigator.wakeLock.request("screen"); }
+  }catch(e){ /* wake lock non disponibile su questo browser/dispositivo: si prosegue comunque */ }
+}
+function releaseWakeLock(){
+  if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock=null; }
+}
+async function enterTableFocus(){
+  document.body.classList.add("table-focus");
+  document.getElementById("tableFocusExit").classList.remove("hidden");
+  await requestWakeLock();
+  try{
+    const el=document.documentElement;
+    if(el.requestFullscreen) await el.requestFullscreen();
+    else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  }catch(e){ /* fullscreen non disponibile (es. iOS Safari): la modalita' funziona comunque senza */ }
+}
+function exitTableFocus(){
+  document.body.classList.remove("table-focus");
+  document.getElementById("tableFocusExit").classList.add("hidden");
+  releaseWakeLock();
+  try{
+    if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+    else if(document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }catch(e){}
+}
+document.getElementById("tableFocusToggle").addEventListener("click", enterTableFocus);
+document.getElementById("tableFocusExit").addEventListener("click", exitTableFocus);
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="visible" && document.body.classList.contains("table-focus")) requestWakeLock();
+});
+document.addEventListener("fullscreenchange", ()=>{
+  if(!document.fullscreenElement && document.body.classList.contains("table-focus")) exitTableFocus();
+});
 
 /* ------------------------- banlist config UI ------------------------- */
 function refreshBanlistSelect(){
@@ -918,9 +1145,12 @@ document.getElementById("blExport").addEventListener("click",()=>{
 /* ------------------------- DB / pool ------------------------- */
 const YGO="https://db.ygoprodeck.com/api/v7/cardinfo.php";
 function ingestYgoproArray(arr){
+  /* frameType/level/attribute: servono solo per le statistiche mazzo (0.7) — carte gia'
+     in pool da prima di questo campo restano senza finche' non si rifa' un download/aggiorna. */
   let n=0; arr.forEach(c=>{ if(!c||!c.name)return; const ft=(c.frameType||"").toLowerCase(); const key=norm(c.name); const prev=pool[key];
     const dt=(c.misc_info&&c.misc_info[0]&&c.misc_info[0].tcg_date)||(prev&&prev.date)||null;
-    pool[key]={name:c.name, extra:/fusion|synchro|xyz|link/.test(ft), id:c.id||null, nameIt:(prev&&prev.nameIt)||undefined, date:dt}; n++; }); return n;
+    pool[key]={name:c.name, extra:/fusion|synchro|xyz|link/.test(ft), id:c.id||null, nameIt:(prev&&prev.nameIt)||undefined, date:dt,
+      frameType:ft||null, level:(c.level!=null?c.level:(c.linkval!=null?c.linkval:null)), attribute:c.attribute||null}; n++; }); return n;
 }
 async function doFetch(update){
   const src=document.getElementById("dbSource").value;
@@ -1045,7 +1275,7 @@ document.getElementById("expYdkFile").addEventListener("click",()=>{
   const miss=[]; const sec=(zone)=>{const lines=[];Object.keys(deck).filter(k=>deck[k][zone]>0).forEach(k=>{const id=idOf(k);if(!id){miss.push(deck[k].name);}else{for(let i=0;i<deck[k][zone];i++)lines.push(id);}});return lines;};
   const main=sec("main"),extra=sec("extra"),side=sec("side");
   if(main.length+extra.length+side.length===0){toast("Mazzo vuoto.",true);return;}
-  const ydk="#created by Edison Deck Builder\n#main\n"+main.join("\n")+"\n#extra\n"+extra.join("\n")+"\n!side\n"+side.join("\n")+"\n";
+  const ydk="#created by Atlas\n#main\n"+main.join("\n")+"\n#extra\n"+extra.join("\n")+"\n!side\n"+side.join("\n")+"\n";
   download(safeName()+".ydk",ydk);
   if(miss.length)toast("Attenzione: "+miss.length+" carte senza ID non incluse ("+miss.slice(0,3).join(", ")+"…).",true);
 });
@@ -1082,7 +1312,7 @@ document.getElementById("printBtn").addEventListener("click",()=>{
     +'<div class="pfields"><div>Giocatore: &nbsp;</div><div>ID / Tavolo: &nbsp;</div><div>Firma: &nbsp;</div></div>'
     +'<div class="pcols"><div>'+listHtml("main","MAIN DECK",cM)+'</div><div>'+listHtml("extra","EXTRA DECK",cE)+listHtml("side","SIDE DECK",cS)+'</div></div>'
     +'<div class="ptot">Totali — Main: '+cM+' (40–60) · Extra: '+cE+' (≤15) · Side: '+cS+' (≤15)</div>'
-    +'<div class="small" style="color:#666;margin-top:8px">Foglio generato da Edison Deck Builder (impaginazione non ufficiale). Per i tornei usa il modulo richiesto dall\'organizzatore.</div>';
+    +'<div class="small" style="color:#666;margin-top:8px">Foglio generato da Atlas (impaginazione non ufficiale). Per i tornei usa il modulo richiesto dall\'organizzatore.</div>';
   window.print();
 });
 

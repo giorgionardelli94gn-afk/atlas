@@ -1,7 +1,7 @@
 {
-  "name": "Atlas — Edison Deck Builder",
-  "short_name": "Atlas Deck",
-  "description": "Deck lab multi-formato Yu-Gi-Oh (formati retro inclusi), offline-first.",
+  "name": "Atlas — Deck Lab & Tavolo YGO",
+  "short_name": "Atlas",
+  "description": "Companion da tavolo + deck lab multi-formato Yu-Gi-Oh (formati retro inclusi), offline-first.",
   "id": "/",
   "start_url": "./index.html",
   "scope": "./",
