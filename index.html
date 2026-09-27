@@ -470,6 +470,17 @@
       <textarea id="blImportText" placeholder="Esempio formato Sezioni:&#10;Forbidden:&#10;Pot of Greed&#10;Raigeki&#10;Limited:&#10;Heavy Storm&#10;Semi-Limited:&#10;Honest"></textarea>
       <div class="row" style="margin-top:8px"><button class="btn primary sm" id="blImport">Importa banlist</button><button class="btn sm" id="blExport">Esporta banlist attiva</button></div>
     </div>
+
+    <div class="panel">
+      <h2>Backup / Ripristino locale</h2>
+      <p class="small muted">Un unico file JSON con <b>tutto</b> quello che Atlas tiene su questo browser: database carte, banlist (comprese quelle importate), mazzi salvati, stato Tavolo, preferenze. Non sostituisce l'export di un singolo mazzo (.ydk/YDKE, tab Costruisci mazzo) — questo è il backup dell'intera app, utile prima di cambiare telefono o cancellare i dati del browser.</p>
+      <div class="row">
+        <button class="btn primary sm" id="backupExport">⬇ Esporta backup completo</button>
+        <button class="btn sm" id="backupImportBtn">⬆ Importa backup</button>
+        <input type="file" id="backupFile" accept=".json" class="hidden">
+      </div>
+      <p class="small muted" id="backupInfo" style="margin-top:8px"></p>
+    </div>
   </section>
 
   <!-- ============ DB ============ -->
@@ -1178,6 +1189,40 @@ document.getElementById("blExport").addEventListener("click",()=>{
   for(const k in bl.entries)g[bl.entries[k].status].push(bl.entries[k].name);
   document.getElementById("blImportText").value="Forbidden:\n"+g.forbidden.sort().join("\n")+"\n\nLimited:\n"+g.limited.sort().join("\n")+"\n\nSemi-Limited:\n"+g.semi.sort().join("\n");
   toast("Banlist attiva esportata nel box.");
+});
+
+/* ------------------------- backup/ripristino locale (0.9) ------------------------- */
+const BACKUP_KEYS=["edison_banlists","edison_active_bl","edison_pool","edison_pool_meta","edison_legalsets","edison_showimg","edison_lang","edison_view","edison_lp","edison_timer","edison_decks"];
+function backupInfoText(){
+  let bytes=0; BACKUP_KEYS.forEach(k=>{const v=localStorage.getItem(k); if(v)bytes+=v.length;});
+  const kb=(bytes/1024).toFixed(0);
+  return "Stima dimensione backup: ~"+kb+" KB ("+Object.keys(lsGet("edison_decks",{})).length+" mazzi salvati, "+poolCount()+" carte in database).";
+}
+document.getElementById("backupInfo").textContent=backupInfoText();
+document.getElementById("backupExport").addEventListener("click",()=>{
+  const data={}; BACKUP_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!==null){ try{ data[k]=JSON.parse(v); }catch(e){} } });
+  const payload={_meta:{app:"Atlas",schema:1,exportedAt:new Date().toISOString()}, data:data};
+  const stamp=new Date().toISOString().slice(0,10);
+  download("atlas-backup-"+stamp+".json", JSON.stringify(payload));
+  toast("Backup esportato.");
+});
+document.getElementById("backupImportBtn").addEventListener("click",()=>document.getElementById("backupFile").click());
+document.getElementById("backupFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  rd.onload=()=>{
+    let payload; try{ payload=JSON.parse(rd.result); }catch(err){ toast("File non valido: non è JSON.",true); return; }
+    if(!payload || typeof payload!=="object" || !payload.data || !payload._meta || payload._meta.app!=="Atlas"){
+      toast("File non riconosciuto come backup Atlas.",true); return;
+    }
+    const keys=Object.keys(payload.data).filter(k=>BACKUP_KEYS.includes(k));
+    if(keys.length===0){ toast("Backup vuoto: nessun dato da ripristinare.",true); return; }
+    if(!confirm("Ripristinare questo backup ("+keys.length+" elementi, esportato il "+new Date(payload._meta.exportedAt||0).toLocaleString("it-IT")+")? Sovrascrive i dati corrispondenti già presenti su questo browser. L'app si ricarica dopo il ripristino.")) return;
+    let failed=[];
+    keys.forEach(k=>{ const ok=lsSet(k,payload.data[k]); if(!ok)failed.push(k); });
+    if(failed.length){ toast("Attenzione: "+failed.join(", ")+" troppo grande per essere salvato (quota browser). Ripristino parziale.",true); setTimeout(()=>location.reload(),2200); }
+    else { location.reload(); }
+  };
+  rd.readAsText(f); e.target.value="";
 });
 
 /* ------------------------- DB / pool ------------------------- */
